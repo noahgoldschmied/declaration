@@ -41,6 +41,11 @@ class DeclarationEngine : Engine {
         }
 
         val newCaptured = state.capturedDecks + (declare.deck to awardedTo)
+        val awardedCount = newCaptured.count { it.value == awardedTo }
+        val gameEnded = awardedCount >= 5
+
+        val newPhase = if (gameEnded) Phase.ENDED else state.phase
+        val newWinner = if (gameEnded) awardedTo else state.winner
 
         val event = Event.Declaration(
             declarer = actor,
@@ -51,7 +56,12 @@ class DeclarationEngine : Engine {
         )
 
         return ActionResult.Ok(
-            newState = state.copy(players = newPlayers, capturedDecks = newCaptured),
+            newState = state.copy(
+                players = newPlayers,
+                capturedDecks = newCaptured,
+                phase = newPhase,
+                winner = newWinner,
+            ),
             events = listOf(event),
         )
     }
