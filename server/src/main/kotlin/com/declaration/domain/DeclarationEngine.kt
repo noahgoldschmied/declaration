@@ -5,8 +5,34 @@ class DeclarationEngine : Engine {
     override fun apply(state: GameState, actor: PlayerId, action: Action): ActionResult =
         when (action) {
             is Action.Ask -> applyAsk(state, actor, action)
-            is Action.Declare -> ActionResult.Invalid("not implemented")
+            is Action.Declare -> applyDeclare(state, actor, action)
         }
+
+    private fun applyDeclare(state: GameState, actor: PlayerId, declare: Action.Declare): ActionResult {
+        if (state.phase != Phase.PLAYING) return ActionResult.Invalid("game has ended")
+
+        val declarer = state.playerById(actor)
+            ?: return ActionResult.Invalid("unknown player")
+
+        val deckCards = DeckCatalog.cardsByDeck[declare.deck]
+            ?: return ActionResult.Invalid("unknown deck")
+
+        if (declare.deck in state.capturedDecks) {
+            return ActionResult.Invalid("deck already captured")
+        }
+
+        if (declare.assignments.keys != deckCards) {
+            return ActionResult.Invalid("assignments must name exactly the 6 cards of the deck")
+        }
+
+        val teammateIds = state.players.filter { it.team == declarer.team }.map { it.id }.toSet()
+        if (declare.assignments.values.any { it !in teammateIds }) {
+            return ActionResult.Invalid("can only assign cards to teammates")
+        }
+
+        // Validity passes. Transition deferred to Task 10.
+        return ActionResult.Invalid("declare transition not implemented")
+    }
 
     private fun applyAsk(state: GameState, actor: PlayerId, ask: Action.Ask): ActionResult {
         if (state.phase != Phase.PLAYING) return ActionResult.Invalid("game has ended")
