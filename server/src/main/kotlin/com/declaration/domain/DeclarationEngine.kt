@@ -46,10 +46,11 @@ class DeclarationEngine : Engine {
             AskOutcome.MISS, AskOutcome.SELF_OVERLAP -> state.players
         }
 
-        val nextTurn = when (outcome) {
+        val nominalNext = when (outcome) {
             AskOutcome.HIT -> actor
             AskOutcome.MISS, AskOutcome.SELF_OVERLAP -> target.id
         }
+        val nextTurn = advancePastEmpty(newPlayers, nominalNext)
 
         val event = Event.Ask(
             asker = actor,
@@ -62,5 +63,21 @@ class DeclarationEngine : Engine {
             newState = state.copy(players = newPlayers, turn = nextTurn),
             events = listOf(event),
         )
+    }
+
+    /**
+     * If [from] has a non-empty hand, return [from]. Otherwise walk forward by seat
+     * (wrapping at 5 → 0) until a player with cards is found. If no player has cards,
+     * return [from] unchanged — no Ask will be valid in that state anyway.
+     */
+    private fun advancePastEmpty(players: List<Player>, from: PlayerId): PlayerId {
+        val bySeat = players.sortedBy { it.seat }
+        val startSeat = bySeat.first { it.id == from }.seat
+        if (bySeat[startSeat].hand.isNotEmpty()) return from
+        for (offset in 1..5) {
+            val candidate = bySeat[(startSeat + offset) % 6]
+            if (candidate.hand.isNotEmpty()) return candidate.id
+        }
+        return from
     }
 }
