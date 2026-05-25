@@ -38,16 +38,25 @@ These constraints come from the spec and must be preserved across all changes:
 
 ## Stack decisions (locked in 2026-05-24)
 
-- **Server:** JDK 21 (LTS) + Spring Boot 3.3.x + Kotlin 2.x, built with Gradle (Kotlin DSL). Use Spring Initializr to generate.
-- **Web:** pnpm + Vite + React 18 + TypeScript + Tailwind 3 + Zustand. Use the Vite React-TS template.
+- **Server:** JDK 21 (LTS) + **Spring Boot 3.5.14** + Kotlin 2.1.0, built with Gradle 8.14 (Kotlin DSL). Root package `com.declaration`.
+  - Note: Boot 4.0.x was the initial pick but Initializr is currently 500-ing on Kotlin generation and Boot 4 has reshuffled test slice packages (`AutoConfigureMockMvc` etc.). 3.5.14 is the last 3.x line and works cleanly. Upgrade later if there's a reason.
+- **Web:** pnpm + Vite + React 18 + TypeScript + Tailwind 3 + Zustand (not yet scaffolded).
 - **No root build orchestrator.** Each subproject builds independently; run two terminals during dev.
 
-## Dev commands (planned — update once scaffolded)
+## Dev commands
 
-- Server: `cd server && ./gradlew bootRun`
-- Web: `cd web && pnpm dev`
+Server (`cd server` first):
 
-Once code exists, replace this section with real build/test/lint commands (including how to run a single test).
+| Task | Command |
+|---|---|
+| Run the server | `./gradlew bootRun` (binds `:8080`) |
+| Health check | `curl http://localhost:8080/healthz` → `ok` |
+| Run all tests | `./gradlew test` |
+| Run one test class | `./gradlew test --tests com.declaration.rest.HealthControllerTest` |
+| Run one test method | `./gradlew test --tests 'com.declaration.rest.HealthControllerTest.healthz returns 200 ok'` |
+| Clean build | `./gradlew clean build` |
+
+Web: not scaffolded yet.
 
 ## Out of scope for v1 (don't add unprompted)
 
