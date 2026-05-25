@@ -28,7 +28,39 @@ class DeclarationEngine : Engine {
             return ActionResult.Invalid("you don't hold any card from that deck")
         }
 
-        // Validity passes. Transition deferred to Task 7.
-        return ActionResult.Invalid("ask transition not implemented")
+        val holder = state.holderOf(ask.card)
+        val outcome = when (holder) {
+            target.id -> AskOutcome.HIT
+            actor -> AskOutcome.SELF_OVERLAP
+            else -> AskOutcome.MISS
+        }
+
+        val newPlayers = when (outcome) {
+            AskOutcome.HIT -> state.players.map { p ->
+                when (p.id) {
+                    actor -> p.copy(hand = p.hand + ask.card)
+                    target.id -> p.copy(hand = p.hand - ask.card)
+                    else -> p
+                }
+            }
+            AskOutcome.MISS, AskOutcome.SELF_OVERLAP -> state.players
+        }
+
+        val nextTurn = when (outcome) {
+            AskOutcome.HIT -> actor
+            AskOutcome.MISS, AskOutcome.SELF_OVERLAP -> target.id
+        }
+
+        val event = Event.Ask(
+            asker = actor,
+            asked = target.id,
+            card = ask.card,
+            outcome = outcome,
+        )
+
+        return ActionResult.Ok(
+            newState = state.copy(players = newPlayers, turn = nextTurn),
+            events = listOf(event),
+        )
     }
 }
