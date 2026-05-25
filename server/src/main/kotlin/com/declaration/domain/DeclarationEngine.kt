@@ -30,8 +30,30 @@ class DeclarationEngine : Engine {
             return ActionResult.Invalid("can only assign cards to teammates")
         }
 
-        // Validity passes. Transition deferred to Task 10.
-        return ActionResult.Invalid("declare transition not implemented")
+        val correct = declare.assignments.all { (card, claimed) ->
+            state.holderOf(card) == claimed
+        }
+        val awardedTo = if (correct) declarer.team else opposingTeam(declarer.team)
+
+        // Remove all 6 cards of this deck from every player's hand.
+        val newPlayers = state.players.map { p ->
+            p.copy(hand = p.hand - deckCards)
+        }
+
+        val newCaptured = state.capturedDecks + (declare.deck to awardedTo)
+
+        val event = Event.Declaration(
+            declarer = actor,
+            deck = declare.deck,
+            assignments = declare.assignments,
+            correct = correct,
+            awardedTo = awardedTo,
+        )
+
+        return ActionResult.Ok(
+            newState = state.copy(players = newPlayers, capturedDecks = newCaptured),
+            events = listOf(event),
+        )
     }
 
     private fun applyAsk(state: GameState, actor: PlayerId, ask: Action.Ask): ActionResult {
