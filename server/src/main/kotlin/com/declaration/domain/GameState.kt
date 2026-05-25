@@ -23,6 +23,9 @@ data class GameState(
         require(players.size == 6) { "Declaration is a 6-player game; got ${players.size}" }
         require(players.map { it.id }.toSet().size == 6) { "player ids must be unique" }
         require(players.map { it.seat }.toSet() == (0..5).toSet()) { "seats must be 0..5" }
+        require(
+            players.groupBy { it.team }.let { it.size == 2 && it.values.all { team -> team.size == 3 } }
+        ) { "teams must be split 3-and-3 across exactly two teams" }
     }
 
     fun playerById(id: PlayerId): Player? = players.firstOrNull { it.id == id }
