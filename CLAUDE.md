@@ -18,7 +18,9 @@ Canonical references (read before non-trivial work — the sections below are co
 - ✅ **M2 — Domain layer (`com.declaration.domain`).** Full pure rules engine: `GameState`, `Action` (`Ask`/`Declare`), `DeclarationEngine`, `Redactor`, `Setup`, `DeckCatalog`. ~70 unit tests, zero framework deps.
 - ✅ **M3 — Room layer (`com.declaration.room`) + protocol (`com.declaration.protocol`).** One coroutine + `Channel<RoomCommand>` per `Room`, `RoomRegistry`, lobby→game lifecycle (host-start, team-pick), reconnect + disconnect-grace cleanup, `ClientMessage`/`ServerMessage` wire types. ~33 tests. Still framework-free (no Spring annotations yet).
 - ✅ **M4 — REST + Spring wiring.** `POST /api/rooms` (201) + `POST /api/rooms/{code}/join` (200/404/409), bodies `{displayName}`. `config/RoomConfig` exposes `RoomRegistry`/`Engine`/`SecureRandom`-backed `Random`/grace `Duration`/app `CoroutineScope` (cancelled on shutdown) as beans. Controller bridges blocking MVC → suspend registry via `runBlocking`. `room/` + `domain/` stay Spring-free; only `config/` and `rest/` touch Spring.
-- ⬜ **M5 — WebSocket.** `WebSocketHandler` at `/ws/room/{code}?session={token}` adapting `WebSocketSession`→`ClientSink`, decoding `ClientMessage`. This is where JSON serialization of the protocol types is wired. (After this, the game is playable end-to-end.)
+- ✅ **M5 — WebSocket.** `ws/GameWebSocketHandler` at `/ws/room/{code}?session={token}` adapts `WebSocketSession`→`ClientSink`, decodes `ClientMessage`, routes to the room, broadcasts `ServerMessage`. Wire format is kotlinx.serialization JSON with a `type` discriminator (`protocol/WireJson`); domain + protocol types are `@Serializable`, `GameState` deliberately is not. The game is **playable end-to-end** (server side). Connect e.g. with `websocat 'ws://localhost:8080/ws/room/{CODE}?session={TOKEN}'`.
+- ⬜ **M6–8 — Web client.** Scaffold `web/` (Vite + React + TS + Tailwind + Zustand); mirror `protocol/messages.md` as TS discriminated unions; `useWebSocket` + store; lobby + table UI; 6-tab end-to-end game.
+- ⬜ **M9 — Polish.** Reconnection UX, action timeouts, error toasts.
 - ⬜ **M6-8 — Web client** (Vite/React, not yet scaffolded). ⬜ **M9 — Polish.**
 
 Each milestone is implemented on a `milestone-N-*` branch via TDD + subagent review, then merged `--no-ff` to `main` locally. Plans live in `docs/superpowers/plans/`.
@@ -28,7 +30,7 @@ Each milestone is implemented on a `milestone-N-*` branch via TDD + subagent rev
 One git repo, independent subprojects (no Nx/Turborepo/Bazel):
 
 ```
-server/   Kotlin + Spring Boot, Gradle    — domain/, room/, protocol/ done; rest/, ws/ pending
+server/   Kotlin + Spring Boot, Gradle    — domain/, room/, protocol/, config/, rest/, ws/ all done
 web/      TypeScript + React + Vite       — not yet scaffolded
 protocol/ messages.md                     — source-of-truth for WS contract
 ```
@@ -37,7 +39,7 @@ protocol/ messages.md                     — source-of-truth for WS contract
 
 These constraints come from the spec and must be preserved across all changes:
 
-1. **`domain/` is pure.** Zero Spring imports, zero framework imports. The rules engine must run in a unit test with no application context. `Clock` and `Random` are **injected**, never called directly (no `Instant.now()`, no `Random.Default`) so tests are deterministic.
+1. **`domain/` is pure.** Zero Spring imports, no application-context framework. The rules engine must run in a unit test with no application context. `Clock` and `Random` are **injected**, never called directly (no `Instant.now()`, no `Random.Default`) so tests are deterministic. **Exception (approved M5):** wire-facing domain types carry `@Serializable` (kotlinx.serialization) so they encode for the WS layer — this is a compile-time annotation, adds no context dependency, and domain still unit-tests with no Spring. `GameState` itself is deliberately **not** `@Serializable` (see invariant #2).
 
 2. **`Redactor` is the only producer of `PlayerView`.** A `GameState` contains every player's hand. A `PlayerView` shows only the viewer's hand (`SelfView`); every other player (teammates included) appears as `OpponentView` exposing only `handSize`, never their cards. **No code path serializes a raw `GameState` to a client.** This is the security boundary that prevents hand leaks via DevTools. The outbound WS channel is typed `ServerMessage` to enforce this at the type level.
 
