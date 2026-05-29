@@ -1,5 +1,8 @@
 package com.declaration.domain
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 enum class Phase { PLAYING, ENDED }
 
 val TEAM_RED = TeamId("RED")
