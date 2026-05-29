@@ -107,6 +107,14 @@ class Room(
     }
 
     private suspend fun handleJoin(cmd: RoomCommand.Join) {
+        if (phase != RoomPhase.LOBBY) {
+            cmd.reply.completeExceptionally(RoomJoinException("game already started"))
+            return
+        }
+        if (sessions.size >= 6) {
+            cmd.reply.completeExceptionally(RoomJoinException("room is full"))
+            return
+        }
         val index = joinCount++
         val token = Tokens.generate(random)
         val session = Session(
