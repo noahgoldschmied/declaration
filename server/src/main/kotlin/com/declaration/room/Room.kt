@@ -1,7 +1,10 @@
 package com.declaration.room
 
+import com.declaration.domain.Action
+import com.declaration.domain.ActionResult
 import com.declaration.domain.Engine
 import com.declaration.domain.Event
+import com.declaration.domain.Phase
 import com.declaration.domain.GameState
 import com.declaration.domain.PlayerId
 import com.declaration.domain.Redactor
@@ -78,7 +81,7 @@ class Room(
     suspend fun startGame(sessionToken: String) =
         submit(RoomCommand.StartGame(sessionToken))
 
-    suspend fun submitAction(sessionToken: String, action: com.declaration.domain.Action) =
+    suspend fun submitAction(sessionToken: String, action: Action) =
         submit(RoomCommand.SubmitAction(sessionToken, action))
 
     suspend fun ping(sessionToken: String) = submit(RoomCommand.Ping(sessionToken))
@@ -93,7 +96,7 @@ class Room(
             is RoomCommand.Connect -> handleConnect(cmd)
             is RoomCommand.ChooseTeam -> handleChooseTeam(cmd)
             is RoomCommand.StartGame -> handleStartGame(cmd)
-            is RoomCommand.SubmitAction -> { /* implemented in Task 8 */ }
+            is RoomCommand.SubmitAction -> handleSubmitAction(cmd)
             is RoomCommand.Ping -> { /* implemented in Task 9 */ }
             is RoomCommand.Disconnect -> { /* implemented in Task 9 */ }
             is RoomCommand.CleanupDisconnect -> { /* implemented in Task 10 */ }
@@ -160,6 +163,25 @@ class Room(
         game = Setup.newGame(seats, random)
         phase = RoomPhase.PLAYING
         broadcastGameUpdate(emptyList())
+    }
+
+    private suspend fun handleSubmitAction(cmd: RoomCommand.SubmitAction) {
+        val session = sessions[cmd.sessionToken] ?: return
+        val current = game
+        if (phase != RoomPhase.PLAYING || current == null) {
+            sendTo(session, ServerMessage.ActionError("game is not in progress"))
+            return
+        }
+        when (val result = engine.apply(current, session.playerId, cmd.action)) {
+            is ActionResult.Ok -> {
+                game = result.newState
+                if (result.newState.phase == Phase.ENDED) phase = RoomPhase.ENDED
+                broadcastGameUpdate(result.events)
+            }
+            is ActionResult.Invalid -> {
+                sendTo(session, ServerMessage.ActionError(result.reason))
+            }
+        }
     }
 
     // --- broadcast helpers ---
