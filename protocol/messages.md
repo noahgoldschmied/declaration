@@ -1,37 +1,39 @@
 # Wire Protocol
 
-**Status:** stub — to be filled in alongside milestone 5 (WebSocket handler).
-
-This file is the **source of truth** for all messages exchanged between the Kotlin server and the React client. The server's `ClientMessage` / `ServerMessage` sealed classes and the web client's TypeScript discriminated unions are hand-mirrored from this document. Any change to a message updates **all three** (this file + Kotlin + TS) in the same PR.
+Source of truth for all messages exchanged between the Kotlin server and the React client. The Kotlin sealed classes in `server/.../com/declaration/protocol/` and the TypeScript discriminated unions in `web/` are hand-mirrored from this document. Any change to a message updates **all** mirrors in the same PR.
 
 ## Transport
 
 - WebSocket at `/ws/room/{code}?session={token}`
-- JSON encoded
-- Sealed-class polymorphism via a `type` discriminator field
+- JSON encoded; sealed-class polymorphism via a `type` discriminator field
+- The session token is in the URL query string, never in a message body
 
-## Client → Server
+## Client → Server (`ClientMessage`)
 
-| Type | Fields | When |
+| `type` | Fields | When |
 |---|---|---|
-| `Hello` | `{}` | First message after WS open. Session token is in the URL query string, not the body. |
-| `Action` | `{ action: Action }` | Player submits an in-game action. `Action` is the discriminated union from `domain/`. |
-| `Ping` | `{}` | Every 20 seconds. Server replies with `Pong`. |
+| `Hello` | `{}` | First message after the socket opens. Server replies `Welcome`. |
+| `ChooseTeam` | `{ team: "RED" \| "BLUE" }` | Lobby only. Pick or switch team. Rejected if the team already has 3 players. |
+| `StartGame` | `{}` | Host only, lobby only. Begins the game. Requires 6 players split 3-3. |
+| `SubmitAction` | `{ action: Action }` | In-game move. `Action` is the domain action union (`Ask` / `Declare`). |
+| `Ping` | `{}` | Keepalive. Server replies `Pong`. |
 
-## Server → Client
+## Server → Client (`ServerMessage`)
 
-| Type | Fields | When |
+| `type` | Fields | When |
 |---|---|---|
-| `Welcome` | `{ playerId, sessionToken, displayName }` | Reply to `Hello`. Confirms session, echoes identity. |
-| `RoomState` | `{ players: PlayerInfo[], phase: 'WAITING' \| 'PLAYING' \| 'ENDED' }` | Player joins/leaves, or phase changes. |
-| `GameUpdate` | `{ view: PlayerView, events: Event[] }` | After every state change. **`view` is redacted for this specific player.** |
-| `ActionError` | `{ reason: string }` | A submitted action was rejected. Server state unchanged. |
+| `Welcome` | `{ playerId, sessionToken, displayName }` | Reply to `Hello`. Confirms identity. |
+| `RoomState` | `{ roomCode, phase: "LOBBY" \| "PLAYING" \| "ENDED", hostId, players: PlayerInfo[] }` | Roster / team / connection / phase changes. |
+| `GameUpdate` | `{ view: PlayerView, events: Event[] }` | After every game state change. **`view` is redacted for the receiving player.** |
+| `ActionError` | `{ reason: string }` | A submitted action/command was rejected. State unchanged. |
 | `Pong` | `{}` | Keepalive reply. |
+
+`PlayerInfo` = `{ playerId, displayName, team: "RED" | "BLUE" | null, connected: boolean }`.
 
 ## Security invariant
 
-The outbound WS channel is typed as `ServerMessage`. No code path serializes a raw `GameState` to a client. The `Redactor` is the only producer of `PlayerView`. Enforced at the type level, not by convention.
+The outbound channel is typed `ServerMessage`. No code path serializes a raw `GameState` to a client. The `Redactor` is the only producer of `PlayerView`. Enforced at the type level.
 
----
+## Memory rule
 
-Concrete JSON shapes for each message type will be filled in when the corresponding Kotlin/TS code is written.
+`GameUpdate.events` is transient — broadcast once, never resent. A reconnecting player receives the current `view` (and `RoomState`) only, never event history. See `RULES.md` §5 and `ENGINE.md` §6.
