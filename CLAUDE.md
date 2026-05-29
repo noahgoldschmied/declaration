@@ -17,8 +17,8 @@ Canonical references (read before non-trivial work — the sections below are co
 - ✅ **M1 — Bootstrap server.** Spring Boot app + `GET /healthz`.
 - ✅ **M2 — Domain layer (`com.declaration.domain`).** Full pure rules engine: `GameState`, `Action` (`Ask`/`Declare`), `DeclarationEngine`, `Redactor`, `Setup`, `DeckCatalog`. ~70 unit tests, zero framework deps.
 - ✅ **M3 — Room layer (`com.declaration.room`) + protocol (`com.declaration.protocol`).** One coroutine + `Channel<RoomCommand>` per `Room`, `RoomRegistry`, lobby→game lifecycle (host-start, team-pick), reconnect + disconnect-grace cleanup, `ClientMessage`/`ServerMessage` wire types. ~33 tests. Still framework-free (no Spring annotations yet).
-- ⬜ **M4 — REST.** `POST /api/rooms` (create) + `/api/rooms/{code}/join`, plus a `@Configuration` exposing `RoomRegistry`/`Engine`/`Random`/grace/app `CoroutineScope` as beans.
-- ⬜ **M5 — WebSocket.** `WebSocketHandler` at `/ws/room/{code}?session={token}` adapting `WebSocketSession`→`ClientSink`, decoding `ClientMessage`. This is where JSON serialization of the protocol types is wired.
+- ✅ **M4 — REST + Spring wiring.** `POST /api/rooms` (201) + `POST /api/rooms/{code}/join` (200/404/409), bodies `{displayName}`. `config/RoomConfig` exposes `RoomRegistry`/`Engine`/`SecureRandom`-backed `Random`/grace `Duration`/app `CoroutineScope` (cancelled on shutdown) as beans. Controller bridges blocking MVC → suspend registry via `runBlocking`. `room/` + `domain/` stay Spring-free; only `config/` and `rest/` touch Spring.
+- ⬜ **M5 — WebSocket.** `WebSocketHandler` at `/ws/room/{code}?session={token}` adapting `WebSocketSession`→`ClientSink`, decoding `ClientMessage`. This is where JSON serialization of the protocol types is wired. (After this, the game is playable end-to-end.)
 - ⬜ **M6-8 — Web client** (Vite/React, not yet scaffolded). ⬜ **M9 — Polish.**
 
 Each milestone is implemented on a `milestone-N-*` branch via TDD + subagent review, then merged `--no-ff` to `main` locally. Plans live in `docs/superpowers/plans/`.
