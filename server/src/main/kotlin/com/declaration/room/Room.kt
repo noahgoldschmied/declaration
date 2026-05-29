@@ -102,7 +102,7 @@ class Room(
                 sessions[cmd.sessionToken]?.let { sendTo(it, ServerMessage.Pong) }
             }
             is RoomCommand.Disconnect -> handleDisconnect(cmd)
-            is RoomCommand.CleanupDisconnect -> { /* implemented in Task 10 */ }
+            is RoomCommand.CleanupDisconnect -> handleCleanupDisconnect(cmd)
         }
     }
 
@@ -201,6 +201,20 @@ class Room(
             submit(RoomCommand.CleanupDisconnect(token, epoch))
         }
         broadcastRoomState()
+    }
+
+    private suspend fun handleCleanupDisconnect(cmd: RoomCommand.CleanupDisconnect) {
+        val session = sessions[cmd.sessionToken] ?: return
+        // Only remove if still disconnected AND no reconnect happened since this timer was set.
+        if (session.sink == null && session.disconnectEpoch == cmd.epoch) {
+            sessions.remove(cmd.sessionToken)
+            if (cmd.sessionToken == hostToken) {
+                // Host left for good: hand off to the next remaining player (insertion order),
+                // or null if the room is now empty.
+                hostToken = sessions.keys.firstOrNull()
+            }
+            broadcastRoomState()
+        }
     }
 
     // --- broadcast helpers ---
