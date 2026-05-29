@@ -16,6 +16,7 @@ import com.declaration.protocol.ServerMessage
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.random.Random
 import kotlin.time.Duration
@@ -97,8 +98,10 @@ class Room(
             is RoomCommand.ChooseTeam -> handleChooseTeam(cmd)
             is RoomCommand.StartGame -> handleStartGame(cmd)
             is RoomCommand.SubmitAction -> handleSubmitAction(cmd)
-            is RoomCommand.Ping -> { /* implemented in Task 9 */ }
-            is RoomCommand.Disconnect -> { /* implemented in Task 9 */ }
+            is RoomCommand.Ping -> {
+                sessions[cmd.sessionToken]?.let { sendTo(it, ServerMessage.Pong) }
+            }
+            is RoomCommand.Disconnect -> handleDisconnect(cmd)
             is RoomCommand.CleanupDisconnect -> { /* implemented in Task 10 */ }
         }
     }
@@ -123,7 +126,10 @@ class Room(
         session.disconnectEpoch++ // invalidate any pending cleanup
         sendTo(session, ServerMessage.Welcome(session.playerId, session.token, session.displayName))
         sendTo(session, currentRoomState())
-        // (Game replay on reconnect is added in Task 9.)
+        val current = game
+        if (current != null) {
+            sendTo(session, ServerMessage.GameUpdate(Redactor.viewFor(current, session.playerId), emptyList()))
+        }
         broadcastRoomState()
     }
 
@@ -182,6 +188,19 @@ class Room(
                 sendTo(session, ServerMessage.ActionError(result.reason))
             }
         }
+    }
+
+    private suspend fun handleDisconnect(cmd: RoomCommand.Disconnect) {
+        val session = sessions[cmd.sessionToken] ?: return
+        session.sink = null
+        session.disconnectEpoch++
+        val epoch = session.disconnectEpoch
+        val token = session.token
+        scope.launch {
+            delay(gracePeriod)
+            submit(RoomCommand.CleanupDisconnect(token, epoch))
+        }
+        broadcastRoomState()
     }
 
     // --- broadcast helpers ---
