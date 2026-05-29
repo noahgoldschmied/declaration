@@ -1,8 +1,11 @@
 package com.declaration.room
 
 import com.declaration.domain.Engine
+import com.declaration.domain.Event
 import com.declaration.domain.GameState
 import com.declaration.domain.PlayerId
+import com.declaration.domain.Redactor
+import com.declaration.domain.Setup
 import com.declaration.domain.TeamId
 import com.declaration.protocol.PlayerInfo
 import com.declaration.protocol.RoomPhase
@@ -89,7 +92,7 @@ class Room(
             is RoomCommand.Join -> handleJoin(cmd)
             is RoomCommand.Connect -> handleConnect(cmd)
             is RoomCommand.ChooseTeam -> handleChooseTeam(cmd)
-            is RoomCommand.StartGame -> { /* implemented in Task 7 */ }
+            is RoomCommand.StartGame -> handleStartGame(cmd)
             is RoomCommand.SubmitAction -> { /* implemented in Task 8 */ }
             is RoomCommand.Ping -> { /* implemented in Task 9 */ }
             is RoomCommand.Disconnect -> { /* implemented in Task 9 */ }
@@ -136,6 +139,29 @@ class Room(
         broadcastRoomState()
     }
 
+    private suspend fun handleStartGame(cmd: RoomCommand.StartGame) {
+        val session = sessions[cmd.sessionToken] ?: return
+        if (cmd.sessionToken != hostToken) {
+            sendTo(session, ServerMessage.ActionError("only the host can start the game"))
+            return
+        }
+        if (phase != RoomPhase.LOBBY) {
+            sendTo(session, ServerMessage.ActionError("game already started"))
+            return
+        }
+        val seated = sessions.values.toList()
+        val redCount = seated.count { it.team == com.declaration.domain.TEAM_RED }
+        val blueCount = seated.count { it.team == com.declaration.domain.TEAM_BLUE }
+        if (seated.size != 6 || redCount != 3 || blueCount != 3) {
+            sendTo(session, ServerMessage.ActionError("need 6 players split 3-3 to start"))
+            return
+        }
+        val seats = seated.map { it.playerId to it.team!! }
+        game = Setup.newGame(seats, random)
+        phase = RoomPhase.PLAYING
+        broadcastGameUpdate(emptyList())
+    }
+
     // --- broadcast helpers ---
 
     private fun currentRoomState(): ServerMessage.RoomState =
@@ -156,6 +182,18 @@ class Room(
     private suspend fun broadcastRoomState() {
         val state = currentRoomState()
         sessions.values.forEach { it.sink?.send(state) }
+    }
+
+    private suspend fun broadcastGameUpdate(events: List<Event>) {
+        val current = game ?: return
+        sessions.values.forEach { session ->
+            session.sink?.send(
+                ServerMessage.GameUpdate(
+                    view = Redactor.viewFor(current, session.playerId),
+                    events = events,
+                ),
+            )
+        }
     }
 
     private suspend fun sendTo(session: Session, message: ServerMessage) {
