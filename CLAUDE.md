@@ -4,21 +4,32 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Status
 
-This is the **Declaration card game monorepo** — a 6-player, turn-based, hidden-hand card game with real-time multiplayer over WebSockets.
+This is the **Declaration card game monorepo** — a 6-player, team-based, hidden-hand card game with real-time multiplayer over WebSockets.
 
-The repo is **pre-scaffolding**: only `README.md`, `.gitignore`, and this file exist. The full design is approved and lives at:
+Canonical references (read before non-trivial work — the sections below are compressed pointers, not replacements):
+- `~/.claude/plans/2026-05-24-card-game-design.md` — infrastructure/architecture spec
+- `RULES.md` — the game rules (player-facing)
+- `ENGINE.md` — engine semantics (state, actions, transitions, redaction boundary)
+- `protocol/messages.md` — wire contract (source of truth for WS messages)
 
-- `~/.claude/plans/2026-05-24-card-game-design.md` (canonical spec)
+### Progress (milestones from the spec)
 
-Read the spec before doing any non-trivial work — the section below is a compressed pointer, not a replacement.
+- ✅ **M1 — Bootstrap server.** Spring Boot app + `GET /healthz`.
+- ✅ **M2 — Domain layer (`com.declaration.domain`).** Full pure rules engine: `GameState`, `Action` (`Ask`/`Declare`), `DeclarationEngine`, `Redactor`, `Setup`, `DeckCatalog`. ~70 unit tests, zero framework deps.
+- ✅ **M3 — Room layer (`com.declaration.room`) + protocol (`com.declaration.protocol`).** One coroutine + `Channel<RoomCommand>` per `Room`, `RoomRegistry`, lobby→game lifecycle (host-start, team-pick), reconnect + disconnect-grace cleanup, `ClientMessage`/`ServerMessage` wire types. ~33 tests. Still framework-free (no Spring annotations yet).
+- ⬜ **M4 — REST.** `POST /api/rooms` (create) + `/api/rooms/{code}/join`, plus a `@Configuration` exposing `RoomRegistry`/`Engine`/`Random`/grace/app `CoroutineScope` as beans.
+- ⬜ **M5 — WebSocket.** `WebSocketHandler` at `/ws/room/{code}?session={token}` adapting `WebSocketSession`→`ClientSink`, decoding `ClientMessage`. This is where JSON serialization of the protocol types is wired.
+- ⬜ **M6-8 — Web client** (Vite/React, not yet scaffolded). ⬜ **M9 — Polish.**
 
-## Planned layout
+Each milestone is implemented on a `milestone-N-*` branch via TDD + subagent review, then merged `--no-ff` to `main` locally. Plans live in `docs/superpowers/plans/`.
 
-Two top-level projects in one git repo (no Nx/Turborepo/Bazel — each builds independently):
+## Layout
+
+One git repo, independent subprojects (no Nx/Turborepo/Bazel):
 
 ```
-server/   Kotlin + Spring Boot, Gradle    — game logic, WS, REST
-web/      TypeScript + React + Vite       — browser client
+server/   Kotlin + Spring Boot, Gradle    — domain/, room/, protocol/ done; rest/, ws/ pending
+web/      TypeScript + React + Vite       — not yet scaffolded
 protocol/ messages.md                     — source-of-truth for WS contract
 ```
 
@@ -28,7 +39,7 @@ These constraints come from the spec and must be preserved across all changes:
 
 1. **`domain/` is pure.** Zero Spring imports, zero framework imports. The rules engine must run in a unit test with no application context. `Clock` and `Random` are **injected**, never called directly (no `Instant.now()`, no `Random.Default`) so tests are deterministic.
 
-2. **`Redactor` is the only producer of `PlayerView`.** A `GameState` contains every player's hand. A `PlayerView` shows only the viewer's hand; opponents appear as `HiddenHand(cardCount)`. **No code path serializes a raw `GameState` to a client.** This is the security boundary that prevents hand leaks via DevTools. The outbound WS channel is typed `ServerMessage` to enforce this at the type level.
+2. **`Redactor` is the only producer of `PlayerView`.** A `GameState` contains every player's hand. A `PlayerView` shows only the viewer's hand (`SelfView`); every other player (teammates included) appears as `OpponentView` exposing only `handSize`, never their cards. **No code path serializes a raw `GameState` to a client.** This is the security boundary that prevents hand leaks via DevTools. The outbound WS channel is typed `ServerMessage` to enforce this at the type level.
 
 3. **One coroutine + `Channel<RoomCommand>` per room.** All mutations to a room's state go through the channel and are processed serially. No locks. The `Room` class has no public mutating methods besides `submit(cmd)`.
 
