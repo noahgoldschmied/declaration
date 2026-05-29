@@ -1,5 +1,8 @@
 package com.declaration.domain
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class SelfView(
     val id: PlayerId,
     val team: TeamId,
@@ -7,6 +10,7 @@ data class SelfView(
     val hand: Set<CardId>,
 )
 
+@Serializable
 data class OpponentView(
     val id: PlayerId,
     val team: TeamId,
@@ -14,6 +18,7 @@ data class OpponentView(
     val handSize: Int,
 )
 
+@Serializable
 data class PlayerView(
     val you: SelfView,
     val others: List<OpponentView>,
