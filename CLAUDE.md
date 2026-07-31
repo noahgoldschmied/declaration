@@ -19,9 +19,8 @@ Canonical references (read before non-trivial work — the sections below are co
 - ✅ **M3 — Room layer (`com.declaration.room`) + protocol (`com.declaration.protocol`).** One coroutine + `Channel<RoomCommand>` per `Room`, `RoomRegistry`, lobby→game lifecycle (host-start, team-pick), reconnect + disconnect-grace cleanup, `ClientMessage`/`ServerMessage` wire types. ~33 tests. Still framework-free (no Spring annotations yet).
 - ✅ **M4 — REST + Spring wiring.** `POST /api/rooms` (201) + `POST /api/rooms/{code}/join` (200/404/409), bodies `{displayName}`. `config/RoomConfig` exposes `RoomRegistry`/`Engine`/`SecureRandom`-backed `Random`/grace `Duration`/app `CoroutineScope` (cancelled on shutdown) as beans. Controller bridges blocking MVC → suspend registry via `runBlocking`. `room/` + `domain/` stay Spring-free; only `config/` and `rest/` touch Spring.
 - ✅ **M5 — WebSocket.** `ws/GameWebSocketHandler` at `/ws/room/{code}?session={token}` adapts `WebSocketSession`→`ClientSink`, decodes `ClientMessage`, routes to the room, broadcasts `ServerMessage`. Wire format is kotlinx.serialization JSON with a `type` discriminator (`protocol/WireJson`); domain + protocol types are `@Serializable`, `GameState` deliberately is not. The game is **playable end-to-end** (server side). Connect e.g. with `websocat 'ws://localhost:8080/ws/room/{CODE}?session={TOKEN}'`.
-- ⬜ **M6–8 — Web client.** Scaffold `web/` (Vite + React + TS + Tailwind + Zustand); mirror `protocol/messages.md` as TS discriminated unions; `useWebSocket` + store; lobby + table UI; 6-tab end-to-end game.
+- ✅ **M6–8 — Web client (`web/`).** Vite + React 19 + TS + Tailwind 3 + Zustand. `protocol/messages.ts` + `protocol/deckCatalog.ts` hand-mirror the Kotlin wire types and `DeckCatalog`. `store/gameStore.ts` owns the WebSocket connection + all server-message handling. Landing (create/join, localStorage session for rejoin) → RoomLobby (roster, team-pick, host-gated start) → Table (hands, turn indicator, ask/declare panels, captured-deck scoreboard, transient event flash per the "memory only" rule, winner banner). Dev-time Vite proxy to the server (`BACKEND_PORT` env var to override the default 8080) so no server-side CORS config is needed. Verified end-to-end with a real 6-player game driven through the actual UI.
 - ⬜ **M9 — Polish.** Reconnection UX, action timeouts, error toasts.
-- ⬜ **M6-8 — Web client** (Vite/React, not yet scaffolded). ⬜ **M9 — Polish.**
 
 Each milestone is implemented on a `milestone-N-*` branch via TDD + subagent review, then merged `--no-ff` to `main` locally. Plans live in `docs/superpowers/plans/`.
 
@@ -53,7 +52,7 @@ These constraints come from the spec and must be preserved across all changes:
 
 - **Server:** JDK 21 (LTS) + **Spring Boot 3.5.14** + Kotlin 2.1.0, built with Gradle 8.14 (Kotlin DSL). Root package `com.declaration`.
   - Note: Boot 4.0.x was the initial pick but Initializr is currently 500-ing on Kotlin generation and Boot 4 has reshuffled test slice packages (`AutoConfigureMockMvc` etc.). 3.5.14 is the last 3.x line and works cleanly. Upgrade later if there's a reason.
-- **Web:** pnpm + Vite + React 18 + TypeScript + Tailwind 3 + Zustand (not yet scaffolded).
+- **Web:** pnpm + Vite + React + TypeScript + Tailwind 3 + Zustand. Scaffolded with React 19 (the current Vite template default) rather than React 18 — nothing in the app depends on the 18-vs-19 distinction, and pinning back would fight the tooling for no benefit.
 - **No root build orchestrator.** Each subproject builds independently; run two terminals during dev.
 
 ## Dev commands
@@ -69,7 +68,15 @@ Server (`cd server` first):
 | Run one test method | `./gradlew test --tests 'com.declaration.rest.HealthControllerTest.healthz returns 200 ok'` |
 | Clean build | `./gradlew clean build` |
 
-Web: not scaffolded yet.
+Web (`cd web` first):
+
+| Task | Command |
+|---|---|
+| Install deps | `pnpm install` |
+| Run the dev server | `pnpm dev` (binds `:5173`, proxies `/api` and `/ws` to the server on `:8080`) |
+| Run against a non-default server port | `BACKEND_PORT=8081 pnpm dev` |
+| Typecheck | `npx tsc -b` |
+| Production build | `pnpm build` |
 
 ## Out of scope for v1 (don't add unprompted)
 
