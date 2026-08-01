@@ -1,11 +1,12 @@
+import { useState } from "react";
 import { useGameStore } from "../store/gameStore";
-import { sortHand } from "../protocol/cards";
 import { ALL_DECKS } from "../protocol/deckCatalog";
-import { Card } from "./Card";
-import { PlayerChip } from "./PlayerChip";
+import { PlayerChip, TEAM_TEXT } from "./PlayerChip";
 import { EventFlash } from "./EventFlash";
 import { AskPanel } from "./AskPanel";
 import { DeclarePanel } from "./DeclarePanel";
+import { Hand } from "./Hand";
+import { RulesButton } from "./RulesModal";
 import type { PlayerId } from "../protocol/messages";
 
 export function Table() {
@@ -18,6 +19,8 @@ export function Table() {
   const leaveRoom = useGameStore((s) => s.leaveRoom);
   const clearActionError = useGameStore((s) => s.clearActionError);
   const clearLastEvent = useGameStore((s) => s.clearLastEvent);
+
+  const [declareOpen, setDeclareOpen] = useState(false);
 
   const nameOf = (id: PlayerId) => players.find((p) => p.playerId === id)?.displayName ?? id;
   const connectedOf = (id: PlayerId) => players.find((p) => p.playerId === id)?.connected ?? true;
@@ -41,13 +44,16 @@ export function Table() {
           <span className="text-sky-400">BLUE {blueDecks}</span>
           <span className="text-slate-500">(first to 5 decks wins)</span>
         </div>
-        <button
-          type="button"
-          className="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-400 hover:border-slate-500"
-          onClick={leaveRoom}
-        >
-          Leave
-        </button>
+        <div className="flex items-center gap-2">
+          <RulesButton />
+          <button
+            type="button"
+            className="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-400 hover:border-slate-500"
+            onClick={leaveRoom}
+          >
+            Leave
+          </button>
+        </div>
       </div>
 
       {view.phase === "ENDED" && view.winner && (
@@ -77,13 +83,8 @@ export function Table() {
       </div>
 
       <div>
-        <p className="mb-2 text-sm text-slate-400">Your hand</p>
-        <div className="flex flex-wrap gap-2">
-          {sortHand(view.you.hand).map((c) => (
-            <Card key={c} card={c} />
-          ))}
-          {view.you.hand.length === 0 && <p className="text-sm text-slate-600">Empty — you're out of cards.</p>}
-        </div>
+        <p className="mb-2 text-sm text-slate-400">Your hand <span className="text-slate-600">(drag to reorder)</span></p>
+        <Hand cards={view.you.hand} />
       </div>
 
       {actionError && (
@@ -101,10 +102,32 @@ export function Table() {
             <AskPanel view={view} nameOf={nameOf} onSubmit={submitAction} />
           ) : (
             <p className="rounded-lg border border-slate-800 bg-slate-900/40 p-4 text-center text-sm text-slate-500">
-              Waiting for {nameOf(view.turn)} to ask…
+              Waiting for{" "}
+              <span className={TEAM_TEXT[seats.find((s) => s.id === view.turn)?.team ?? "RED"]}>
+                {nameOf(view.turn)}
+              </span>{" "}
+              to ask…
             </p>
           )}
-          <DeclarePanel view={view} nameOf={nameOf} onSubmit={submitAction} />
+          {declareOpen ? (
+            <DeclarePanel
+              view={view}
+              nameOf={nameOf}
+              onSubmit={(action) => {
+                submitAction(action);
+                setDeclareOpen(false);
+              }}
+              onCancel={() => setDeclareOpen(false)}
+            />
+          ) : (
+            <button
+              type="button"
+              className="w-full rounded-lg border border-amber-800 bg-amber-950/30 px-4 py-2 font-medium text-amber-300 hover:bg-amber-950/50"
+              onClick={() => setDeclareOpen(true)}
+            >
+              Declare a deck…
+            </button>
+          )}
         </>
       )}
     </div>

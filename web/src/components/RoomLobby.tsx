@@ -1,4 +1,6 @@
 import { useGameStore } from "../store/gameStore";
+import { RulesButton } from "./RulesModal";
+import { TEAM_TEXT } from "./PlayerChip";
 import type { TeamId } from "../protocol/messages";
 
 const TEAM_STYLES: Record<TeamId, string> = {
@@ -29,13 +31,16 @@ export function RoomLobby() {
           <p className="text-sm text-slate-400">Room code</p>
           <p className="text-4xl font-bold tracking-[0.3em]">{roomState?.roomCode ?? session.roomCode}</p>
         </div>
-        <button
-          type="button"
-          className="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-400 hover:border-slate-500"
-          onClick={leaveRoom}
-        >
-          Leave
-        </button>
+        <div className="flex items-center gap-2">
+          <RulesButton />
+          <button
+            type="button"
+            className="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-400 hover:border-slate-500"
+            onClick={leaveRoom}
+          >
+            Leave
+          </button>
+        </div>
       </div>
 
       <div className="flex gap-3">
@@ -59,7 +64,7 @@ export function RoomLobby() {
             <li key={p.playerId} className="flex items-center justify-between px-4 py-2.5">
               <span className="flex items-center gap-2">
                 <span className={`h-2 w-2 rounded-full ${p.connected ? "bg-emerald-500" : "bg-slate-600"}`} />
-                {p.displayName}
+                <span className={p.team ? TEAM_TEXT[p.team] : ""}>{p.displayName}</span>
                 {p.playerId === roomState?.hostId && (
                   <span className="rounded bg-slate-800 px-1.5 py-0.5 text-xs text-slate-400">host</span>
                 )}

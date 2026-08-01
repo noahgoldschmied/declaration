@@ -1,18 +1,46 @@
-import { cardLabel, isRed } from "../protocol/cards";
+import { cardLabel, isJoker, isRed } from "../protocol/cards";
 import type { CardId } from "../protocol/messages";
+import jokerBw from "../assets/joker-bw.svg";
+import jokerColor from "../assets/joker-color.svg";
 
-export function Card({ card, dim = false }: { card: CardId; dim?: boolean }) {
+export function Card({
+  card,
+  dim = false,
+  selected = false,
+  onClick,
+}: {
+  card: CardId;
+  dim?: boolean;
+  selected?: boolean;
+  onClick?: () => void;
+}) {
+  const Tag = onClick ? "button" : "span";
+  const joker = isJoker(card);
+  const colorClasses = dim
+    ? "border-slate-700 bg-slate-800 text-slate-500"
+    : joker
+      ? "border-slate-700 bg-white"
+      : isRed(card)
+        ? "border-rose-800 bg-white text-rose-600"
+        : "border-slate-700 bg-white text-slate-900";
+
   return (
-    <span
-      className={`inline-flex h-14 w-10 flex-none items-center justify-center rounded-md border font-mono text-sm font-semibold shadow-sm ${
-        dim
-          ? "border-slate-700 bg-slate-800 text-slate-500"
-          : isRed(card)
-            ? "border-rose-800 bg-white text-rose-600"
-            : "border-slate-700 bg-white text-slate-900"
-      }`}
+    <Tag
+      type={onClick ? "button" : undefined}
+      onClick={onClick}
+      className={`inline-flex h-28 w-20 flex-none items-center justify-center rounded-xl border-2 font-mono font-bold shadow-md transition ${
+        onClick ? "cursor-pointer hover:-translate-y-1" : ""
+      } ${selected ? "-translate-y-1 ring-4 ring-emerald-400 ring-offset-2 ring-offset-slate-950" : ""} ${colorClasses}`}
     >
-      {cardLabel(card)}
-    </span>
+      {joker ? (
+        <img
+          src={card === "JK2" ? jokerColor : jokerBw}
+          alt={cardLabel(card)}
+          className={dim ? "h-14 w-14 object-contain opacity-40 grayscale" : "h-14 w-14 object-contain"}
+        />
+      ) : (
+        <span className="text-2xl">{cardLabel(card)}</span>
+      )}
+    </Tag>
   );
 }
