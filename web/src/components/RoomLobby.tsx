@@ -4,8 +4,8 @@ import { TEAM_TEXT } from "./PlayerChip";
 import type { TeamId } from "../protocol/messages";
 
 const TEAM_STYLES: Record<TeamId, string> = {
-  RED: "border-rose-500 text-rose-300",
-  BLUE: "border-sky-500 text-sky-300",
+  RED: "border-red-600 text-red-400",
+  BLUE: "border-sky-600 text-sky-300",
 };
 
 export function RoomLobby() {
@@ -28,16 +28,14 @@ export function RoomLobby() {
     <div className="mx-auto flex h-full max-w-2xl flex-col gap-6 px-4 py-10">
       <div className="flex items-start justify-between">
         <div>
-          <p className="text-sm text-slate-400">Room code</p>
-          <p className="text-4xl font-bold tracking-[0.3em]">{roomState?.roomCode ?? session.roomCode}</p>
+          <p className="text-sm text-stone-400">Room code</p>
+          <p className="font-display text-4xl tracking-[0.3em] text-amber-400">
+            {roomState?.roomCode ?? session.roomCode}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <RulesButton />
-          <button
-            type="button"
-            className="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-400 hover:border-slate-500"
-            onClick={leaveRoom}
-          >
+          <button type="button" className="btn-secondary" onClick={leaveRoom}>
             Leave
           </button>
         </div>
@@ -49,8 +47,8 @@ export function RoomLobby() {
             key={team}
             type="button"
             onClick={() => chooseTeam(team)}
-            className={`flex-1 rounded-lg border-2 py-3 font-semibold transition ${TEAM_STYLES[team]} ${
-              me?.team === team ? "bg-slate-800" : "bg-slate-900 opacity-70 hover:opacity-100"
+            className={`flex-1 rounded-lg border-2 py-3 font-display text-lg tracking-wide transition ${TEAM_STYLES[team]} ${
+              me?.team === team ? "bg-stone-800" : "bg-stone-900 opacity-70 hover:opacity-100"
             }`}
           >
             {team} ({team === "RED" ? redCount : blueCount}/3)
@@ -58,25 +56,27 @@ export function RoomLobby() {
         ))}
       </div>
 
-      <div className="rounded-lg border border-slate-800 bg-slate-900">
-        <ul className="divide-y divide-slate-800">
+      <div className="panel">
+        <ul className="divide-y divide-stone-800">
           {players.map((p) => (
             <li key={p.playerId} className="flex items-center justify-between px-4 py-2.5">
               <span className="flex items-center gap-2">
-                <span className={`h-2 w-2 rounded-full ${p.connected ? "bg-emerald-500" : "bg-slate-600"}`} />
+                <span className={`h-2 w-2 rounded-full ${p.connected ? "bg-emerald-500" : "bg-stone-600"}`} />
                 <span className={p.team ? TEAM_TEXT[p.team] : ""}>{p.displayName}</span>
                 {p.playerId === roomState?.hostId && (
-                  <span className="rounded bg-slate-800 px-1.5 py-0.5 text-xs text-slate-400">host</span>
+                  <span className="rounded border border-amber-800 bg-amber-950/50 px-1.5 py-0.5 text-xs text-amber-400">
+                    host
+                  </span>
                 )}
-                {p.playerId === session.playerId && <span className="text-xs text-slate-500">(you)</span>}
+                {p.playerId === session.playerId && <span className="text-xs text-stone-500">(you)</span>}
               </span>
-              <span className={`text-sm ${p.team ? TEAM_STYLES[p.team] : "text-slate-600"}`}>
+              <span className={`text-sm ${p.team ? TEAM_STYLES[p.team] : "text-stone-600"}`}>
                 {p.team ?? "no team"}
               </span>
             </li>
           ))}
           {Array.from({ length: Math.max(0, 6 - players.length) }).map((_, i) => (
-            <li key={`empty-${i}`} className="px-4 py-2.5 text-slate-600">
+            <li key={`empty-${i}`} className="px-4 py-2.5 text-stone-600">
               Waiting for player…
             </li>
           ))}
@@ -93,16 +93,11 @@ export function RoomLobby() {
       )}
 
       {isHost && (
-        <button
-          type="button"
-          disabled={!canStart}
-          onClick={startGame}
-          className="rounded-md bg-indigo-600 px-4 py-3 font-semibold hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
-        >
+        <button type="button" disabled={!canStart} onClick={startGame} className="btn-primary py-3 text-lg">
           {canStart ? "Start game" : "Need 6 players, 3 per team"}
         </button>
       )}
-      {!isHost && <p className="text-center text-sm text-slate-500">Waiting for the host to start the game…</p>}
+      {!isHost && <p className="text-center text-sm text-stone-500">Waiting for the host to start the game…</p>}
     </div>
   );
 }

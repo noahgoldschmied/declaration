@@ -1,12 +1,12 @@
 import type { PlayerId, TeamId } from "../protocol/messages";
 
 const TEAM_RING: Record<TeamId, string> = {
-  RED: "ring-rose-500",
+  RED: "ring-red-600",
   BLUE: "ring-sky-500",
 };
 
 export const TEAM_TEXT: Record<TeamId, string> = {
-  RED: "text-rose-300",
+  RED: "text-red-400",
   BLUE: "text-sky-300",
 };
 
@@ -30,16 +30,16 @@ export function PlayerChip({
 }) {
   return (
     <div
-      className={`flex min-w-[7rem] flex-col items-center gap-1 rounded-lg border border-slate-800 bg-slate-900 px-3 py-2 ring-2 ring-offset-2 ring-offset-slate-950 transition ${
-        selected ? "ring-emerald-400 bg-slate-800" : isTurn ? TEAM_RING[team] : "ring-transparent"
+      className={`flex min-w-[7rem] flex-col items-center gap-1 rounded-lg border border-stone-800 bg-stone-900 px-3 py-2 ring-2 ring-offset-2 ring-offset-stone-950 transition ${
+        selected ? "ring-emerald-400 bg-stone-800" : isTurn ? TEAM_RING[team] : "ring-transparent"
       }`}
     >
       <span className={`flex items-center gap-1.5 text-sm font-medium ${TEAM_TEXT[team]}`}>
-        <span className={`h-1.5 w-1.5 rounded-full ${connected ? "bg-emerald-500" : "bg-slate-600"}`} />
+        <span className={`h-1.5 w-1.5 rounded-full ${connected ? "bg-emerald-500" : "bg-stone-600"}`} />
         {name}
-        {isYou && <span className="text-xs text-slate-500">(you)</span>}
+        {isYou && <span className="text-xs text-stone-500">(you)</span>}
       </span>
-      <span className="text-xs text-slate-500">{handSize} cards</span>
+      <span className="text-xs text-stone-500">{handSize} cards</span>
     </div>
   );
 }

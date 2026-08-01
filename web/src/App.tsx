@@ -21,11 +21,7 @@ function App() {
   if (status === "closed") {
     return (
       <CenteredMessage title="Disconnected">
-        <button
-          type="button"
-          className="mt-4 rounded-md bg-indigo-600 px-4 py-2 font-medium hover:bg-indigo-500"
-          onClick={() => connect(session)}
-        >
+        <button type="button" className="btn-primary mt-4" onClick={() => connect(session)}>
           Reconnect
         </button>
       </CenteredMessage>
@@ -44,7 +40,7 @@ function App() {
 function CenteredMessage({ title, children }: { title: string; children?: ReactNode }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-2">
-      <h1 className="text-xl font-semibold text-slate-300">{title}</h1>
+      <h1 className="font-display text-2xl text-amber-400">{title}</h1>
       {children}
     </div>
   );

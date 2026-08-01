@@ -14,7 +14,7 @@ const DECKS = [
 
 function RulesContent() {
   return (
-    <div className="space-y-4 text-sm leading-relaxed text-slate-300">
+    <div className="space-y-4 text-sm leading-relaxed text-stone-300">
       <p>
         Six players split into two teams of three. The 54-card deck is divided into <strong>9 decks of 6 cards
         each</strong>. The first team to capture <strong>5 decks</strong> wins.
@@ -25,20 +25,24 @@ function RulesContent() {
         deck instead.
       </p>
 
+      <div className="divider" />
+
       <section>
-        <h3 className="mb-1 font-semibold text-slate-100">The decks</h3>
+        <h3 className="mb-1 font-display text-lg text-amber-400">The decks</h3>
         <div className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
           {DECKS.map(([name, cards]) => (
-            <div key={name} className="flex justify-between gap-2 rounded bg-slate-800/50 px-2 py-1">
-              <span className="text-slate-400">{name}</span>
+            <div key={name} className="flex justify-between gap-2 rounded bg-stone-800/50 px-2 py-1">
+              <span className="text-stone-400">{name}</span>
               <span className="font-mono">{cards}</span>
             </div>
           ))}
         </div>
       </section>
 
+      <div className="divider" />
+
       <section>
-        <h3 className="mb-1 font-semibold text-slate-100">Asking</h3>
+        <h3 className="mb-1 font-display text-lg text-amber-400">Asking</h3>
         <p>
           On your turn, ask one opponent for one specific card. You may only ask for a card from a deck you already
           hold at least one card from — so every ask reveals something about your own hand.
@@ -53,8 +57,10 @@ function RulesContent() {
         </ul>
       </section>
 
+      <div className="divider" />
+
       <section>
-        <h3 className="mb-1 font-semibold text-slate-100">Memory only</h3>
+        <h3 className="mb-1 font-display text-lg text-amber-400">Memory only</h3>
         <p>
           Every ask and its outcome is shown briefly, then disappears. There's no history log. You must remember
           what's happened — which cards moved, which players have proven they don't hold a card, and which have
@@ -62,8 +68,10 @@ function RulesContent() {
         </p>
       </section>
 
+      <div className="divider" />
+
       <section>
-        <h3 className="mb-1 font-semibold text-slate-100">Declaring</h3>
+        <h3 className="mb-1 font-display text-lg text-amber-400">Declaring</h3>
         <p>
           Any player can declare any deck at any time, even interrupting someone else's turn. Name all 6 cards and
           assign each to a specific teammate (including yourself). If every assignment is correct, your team
@@ -72,8 +80,10 @@ function RulesContent() {
         </p>
       </section>
 
+      <div className="divider" />
+
       <section>
-        <h3 className="mb-1 font-semibold text-slate-100">Edge cases</h3>
+        <h3 className="mb-1 font-display text-lg text-amber-400">Edge cases</h3>
         <ul className="list-inside list-disc space-y-1">
           <li>An empty hand permanently skips your turn — but you can still declare.</li>
           <li>If a whole team runs out of cards, the other team just keeps asking (and missing) until decks are declared out.</li>
@@ -89,29 +99,21 @@ export function RulesButton() {
 
   return (
     <>
-      <button
-        type="button"
-        className="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-400 hover:border-slate-500"
-        onClick={() => setOpen(true)}
-      >
+      <button type="button" className="btn-secondary" onClick={() => setOpen(true)}>
         Rules
       </button>
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
           onClick={() => setOpen(false)}
         >
           <div
-            className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-lg border border-slate-700 bg-slate-900 p-6"
+            className="panel max-h-[85vh] w-full max-w-2xl overflow-y-auto p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-100">Declaration — Rules</h2>
-              <button
-                type="button"
-                className="rounded-md border border-slate-700 px-2 py-1 text-sm text-slate-400 hover:border-slate-500"
-                onClick={() => setOpen(false)}
-              >
+              <h2 className="font-display text-2xl text-amber-400">Declaration — Rules</h2>
+              <button type="button" className="btn-secondary" onClick={() => setOpen(false)}>
                 Close
               </button>
             </div>

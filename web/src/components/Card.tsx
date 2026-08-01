@@ -17,12 +17,12 @@ export function Card({
   const Tag = onClick ? "button" : "span";
   const joker = isJoker(card);
   const colorClasses = dim
-    ? "border-slate-700 bg-slate-800 text-slate-500"
+    ? "border-stone-700 bg-stone-800 text-stone-500"
     : joker
-      ? "border-slate-700 bg-white"
+      ? "border-stone-700 bg-white"
       : isRed(card)
-        ? "border-rose-800 bg-white text-rose-600"
-        : "border-slate-700 bg-white text-slate-900";
+        ? "border-red-800 bg-white text-red-700"
+        : "border-stone-700 bg-white text-stone-900";
 
   return (
     <Tag
@@ -30,7 +30,7 @@ export function Card({
       onClick={onClick}
       className={`inline-flex h-28 w-20 flex-none items-center justify-center rounded-xl border-2 font-mono font-bold shadow-md transition ${
         onClick ? "cursor-pointer hover:-translate-y-1" : ""
-      } ${selected ? "-translate-y-1 ring-4 ring-emerald-400 ring-offset-2 ring-offset-slate-950" : ""} ${colorClasses}`}
+      } ${selected ? "-translate-y-1 ring-4 ring-emerald-400 ring-offset-2 ring-offset-stone-950" : ""} ${colorClasses}`}
     >
       {joker ? (
         <img

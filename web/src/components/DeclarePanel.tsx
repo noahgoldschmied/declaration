@@ -61,7 +61,7 @@ export function DeclarePanel({
 
   return (
     <div className="rounded-lg border border-amber-800 bg-amber-950/30 p-4">
-      <h3 className="mb-1 font-semibold text-amber-300">Declare a deck</h3>
+      <h3 className="mb-1 font-display text-xl text-amber-300">Declare a deck</h3>
       <p className="mb-3 text-xs text-amber-400/70">
         Any player can declare at any time. One wrong card gives the whole deck to the other team.
       </p>
@@ -76,7 +76,7 @@ export function DeclarePanel({
             className={`rounded-md border px-3 py-1.5 text-sm font-medium transition ${
               deck === d
                 ? "border-amber-400 bg-amber-900/60 text-amber-200"
-                : "border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-500"
+                : "border-stone-700 bg-stone-900 text-stone-300 hover:border-stone-500"
             }`}
           >
             {DECK_LABELS[d] ?? d}
@@ -93,10 +93,10 @@ export function DeclarePanel({
           <div
             onDragOver={(e) => e.preventDefault()}
             onDrop={() => dropOn(null)}
-            className="mb-3 flex min-h-[7.5rem] flex-wrap items-center gap-2 rounded-lg border-2 border-dashed border-slate-700 bg-slate-950/50 p-3"
+            className="mb-3 flex min-h-[7.5rem] flex-wrap items-center gap-2 rounded-lg border-2 border-dashed border-stone-700 bg-stone-950/50 p-3"
           >
             {unassigned.length === 0 ? (
-              <p className="text-sm text-slate-600">All 6 cards assigned — drop here to unassign one.</p>
+              <p className="text-sm text-stone-600">All 6 cards assigned — drop here to unassign one.</p>
             ) : (
               unassigned.map((c) => (
                 <div
@@ -118,7 +118,7 @@ export function DeclarePanel({
                 key={a.id}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={() => dropOn(a.id)}
-                className="min-h-[6.5rem] rounded-lg border-2 border-dashed border-slate-700 bg-slate-900/40 p-2"
+                className="min-h-[6.5rem] rounded-lg border-2 border-dashed border-stone-700 bg-stone-900/40 p-2"
               >
                 <p className={`mb-1.5 text-xs font-semibold ${TEAM_TEXT[view.you.team]}`}>{a.label}</p>
                 <div className="flex flex-wrap gap-1.5">
@@ -146,16 +146,12 @@ export function DeclarePanel({
         <button
           type="button"
           disabled={!complete}
-          className="flex-1 rounded-md bg-amber-600 px-4 py-2 font-medium hover:bg-amber-500 disabled:opacity-40"
+          className="btn-primary flex-1"
           onClick={() => complete && onSubmit({ type: "Declare", deck, assignments })}
         >
           Declare {DECK_LABELS[deck] ?? deck}
         </button>
-        <button
-          type="button"
-          className="rounded-md border border-slate-700 px-4 py-2 text-sm text-slate-400 hover:border-slate-500"
-          onClick={onCancel}
-        >
+        <button type="button" className="btn-secondary px-4 py-2" onClick={onCancel}>
           Cancel
         </button>
       </div>

@@ -38,19 +38,15 @@ export function Table() {
     <div className="mx-auto flex h-full max-w-4xl flex-col gap-4 px-4 py-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4 text-sm">
-          <span className="font-mono text-lg tracking-widest text-slate-300">{session.roomCode}</span>
-          <span className="text-rose-400">RED {redDecks}</span>
-          <span className="text-slate-600">·</span>
+          <span className="font-display text-lg tracking-widest text-amber-400">{session.roomCode}</span>
+          <span className="text-red-400">RED {redDecks}</span>
+          <span className="text-stone-600">·</span>
           <span className="text-sky-400">BLUE {blueDecks}</span>
-          <span className="text-slate-500">(first to 5 decks wins)</span>
+          <span className="text-stone-500">(first to 5 decks wins)</span>
         </div>
         <div className="flex items-center gap-2">
           <RulesButton />
-          <button
-            type="button"
-            className="rounded-md border border-slate-700 px-3 py-1.5 text-sm text-slate-400 hover:border-slate-500"
-            onClick={leaveRoom}
-          >
+          <button type="button" className="btn-secondary" onClick={leaveRoom}>
             Leave
           </button>
         </div>
@@ -58,8 +54,8 @@ export function Table() {
 
       {view.phase === "ENDED" && view.winner && (
         <div
-          className={`rounded-lg border-2 px-4 py-3 text-center text-lg font-bold ${
-            view.winner === "RED" ? "border-rose-500 text-rose-300" : "border-sky-500 text-sky-300"
+          className={`rounded-lg border-2 px-4 py-3 text-center font-display text-2xl ${
+            view.winner === "RED" ? "border-red-600 text-red-400" : "border-sky-500 text-sky-300"
           }`}
         >
           {view.winner} wins! ({view.winner === "RED" ? redDecks : blueDecks} decks captured)
@@ -68,7 +64,7 @@ export function Table() {
 
       {lastEvent && <EventFlash event={lastEvent} nameOf={nameOf} onDismiss={clearLastEvent} />}
 
-      <div className="flex flex-wrap justify-center gap-3 rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+      <div className="flex flex-wrap justify-center gap-3 rounded-lg border border-stone-800 bg-stone-900/50 p-4">
         {seats.map((p) => (
           <PlayerChip
             key={p.id}
@@ -83,7 +79,7 @@ export function Table() {
       </div>
 
       <div>
-        <p className="mb-2 text-sm text-slate-400">Your hand <span className="text-slate-600">(drag to reorder)</span></p>
+        <p className="mb-2 text-sm text-stone-400">Your hand <span className="text-stone-600">(drag to reorder)</span></p>
         <Hand cards={view.you.hand} />
       </div>
 
@@ -101,7 +97,7 @@ export function Table() {
           {isYourTurn ? (
             <AskPanel view={view} nameOf={nameOf} onSubmit={submitAction} />
           ) : (
-            <p className="rounded-lg border border-slate-800 bg-slate-900/40 p-4 text-center text-sm text-slate-500">
+            <p className="rounded-lg border border-stone-800 bg-stone-900/40 p-4 text-center text-sm text-stone-500">
               Waiting for{" "}
               <span className={TEAM_TEXT[seats.find((s) => s.id === view.turn)?.team ?? "RED"]}>
                 {nameOf(view.turn)}
@@ -122,7 +118,7 @@ export function Table() {
           ) : (
             <button
               type="button"
-              className="w-full rounded-lg border border-amber-800 bg-amber-950/30 px-4 py-2 font-medium text-amber-300 hover:bg-amber-950/50"
+              className="w-full rounded-lg border border-amber-800 bg-amber-950/30 px-4 py-2 font-display text-lg tracking-wide text-amber-300 hover:bg-amber-950/50"
               onClick={() => setDeclareOpen(true)}
             >
               Declare a deck…

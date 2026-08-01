@@ -9,7 +9,69 @@ body,
 }
 
 body {
-  @apply bg-slate-950 text-slate-100;
+  @apply bg-stone-950 font-body text-stone-100;
   margin: 0;
-  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  background-image: radial-gradient(ellipse at top, rgba(120, 78, 33, 0.12), transparent 60%);
+  background-attachment: fixed;
+}
+
+h1,
+h2,
+h3,
+.font-display {
+  font-family: "Rye", serif;
+  letter-spacing: 0.02em;
+}
+
+::selection {
+  background: rgba(217, 119, 6, 0.45);
+  color: #fef3c7;
+}
+
+:focus-visible {
+  outline: 2px solid rgb(217 119 6);
+  outline-offset: 2px;
+}
+
+* {
+  scrollbar-color: rgb(120 85 45) rgb(28 25 23);
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: rgb(28 25 23);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgb(120 85 45);
+  border-radius: 6px;
+  border: 2px solid rgb(28 25 23);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgb(146 104 56);
+}
+
+@layer components {
+  .divider {
+    @apply my-3 h-px bg-gradient-to-r from-transparent via-amber-800 to-transparent;
+  }
+
+
+  .btn-primary {
+    @apply rounded-md border border-amber-700 bg-amber-600 px-4 py-2 font-semibold text-stone-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_2px_4px_rgba(0,0,0,0.5)] transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none;
+  }
+
+  .btn-secondary {
+    @apply rounded-md border border-stone-600 bg-stone-900 px-3 py-1.5 text-sm text-stone-300 transition hover:border-amber-700 hover:text-amber-300;
+  }
+
+  .panel {
+    @apply rounded-lg border border-stone-700 bg-stone-900/80 shadow-[0_2px_10px_rgba(0,0,0,0.5)];
+  }
 }

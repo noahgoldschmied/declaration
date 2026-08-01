@@ -45,8 +45,12 @@ export function Landing() {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-8 px-4">
       <div className="text-center">
-        <h1 className="text-4xl font-bold tracking-tight">Declaration</h1>
-        <p className="mt-1 text-slate-400">A 6-player team card game of memory and deduction.</p>
+        <h1 className="text-6xl font-bold tracking-tight text-amber-400 drop-shadow-[0_2px_0_rgba(0,0,0,0.6)]">
+          Declaration
+        </h1>
+        <p className="mt-2 text-sm uppercase tracking-[0.25em] text-stone-400">
+          Six players &middot; two gangs &middot; one deck of secrets
+        </p>
       </div>
 
       {staleSessionNotice && (
@@ -56,37 +60,37 @@ export function Landing() {
       )}
 
       {saved && (
-        <button
-          type="button"
-          className="rounded-md border border-slate-700 bg-slate-900 px-4 py-2 text-sm text-slate-300 hover:border-slate-500"
-          onClick={() => connect(saved)}
-        >
+        <button type="button" className="btn-secondary px-4 py-2" onClick={() => connect(saved)}>
           Rejoin room {saved.roomCode} as {saved.displayName}
         </button>
       )}
 
-      <form onSubmit={handleSubmit} className="w-full max-w-sm rounded-lg border border-slate-800 bg-slate-900 p-6">
-        <div className="mb-4 flex rounded-md bg-slate-800 p-1 text-sm">
+      <form onSubmit={handleSubmit} className="panel w-full max-w-sm p-6">
+        <div className="mb-4 flex rounded-md border border-stone-700 bg-stone-950 p-1 text-sm">
           <button
             type="button"
-            className={`flex-1 rounded px-3 py-1.5 ${mode === "create" ? "bg-indigo-600 text-white" : "text-slate-400"}`}
+            className={`flex-1 rounded px-3 py-1.5 transition ${
+              mode === "create" ? "bg-amber-600 text-stone-950 font-semibold" : "text-stone-400 hover:text-stone-200"
+            }`}
             onClick={() => setMode("create")}
           >
             Create room
           </button>
           <button
             type="button"
-            className={`flex-1 rounded px-3 py-1.5 ${mode === "join" ? "bg-indigo-600 text-white" : "text-slate-400"}`}
+            className={`flex-1 rounded px-3 py-1.5 transition ${
+              mode === "join" ? "bg-amber-600 text-stone-950 font-semibold" : "text-stone-400 hover:text-stone-200"
+            }`}
             onClick={() => setMode("join")}
           >
             Join room
           </button>
         </div>
 
-        <label className="mb-3 block text-sm text-slate-400">
+        <label className="mb-3 block text-sm text-stone-400">
           Display name
           <input
-            className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100 focus:border-indigo-500 focus:outline-none"
+            className="mt-1 w-full rounded-md border border-stone-700 bg-stone-950 px-3 py-2 text-stone-100 focus:border-amber-600 focus:outline-none"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             maxLength={24}
@@ -95,10 +99,10 @@ export function Landing() {
         </label>
 
         {mode === "join" && (
-          <label className="mb-3 block text-sm text-slate-400">
+          <label className="mb-3 block text-sm text-stone-400">
             Room code
             <input
-              className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 uppercase tracking-widest text-slate-100 focus:border-indigo-500 focus:outline-none"
+              className="mt-1 w-full rounded-md border border-stone-700 bg-stone-950 px-3 py-2 font-display uppercase tracking-widest text-amber-300 focus:border-amber-600 focus:outline-none"
               value={roomCode}
               onChange={(e) => setRoomCode(e.target.value)}
               maxLength={4}
@@ -108,11 +112,7 @@ export function Landing() {
 
         {error && <p className="mb-3 text-sm text-red-400">{error}</p>}
 
-        <button
-          type="submit"
-          disabled={busy}
-          className="w-full rounded-md bg-indigo-600 px-4 py-2 font-medium hover:bg-indigo-500 disabled:opacity-50"
-        >
+        <button type="submit" disabled={busy} className="btn-primary w-full">
           {mode === "create" ? "Create room" : "Join room"}
         </button>
       </form>

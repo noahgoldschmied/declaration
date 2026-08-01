@@ -37,7 +37,7 @@ export function AskPanel({
 
   return (
     <div className="rounded-lg border border-emerald-800 bg-emerald-950/40 p-4">
-      <h3 className="mb-3 font-semibold text-emerald-300">Your turn — ask an opponent</h3>
+      <h3 className="mb-3 font-display text-xl text-emerald-300">Your turn — ask an opponent</h3>
 
       <p className="mb-2 text-xs font-medium tracking-wide text-emerald-400/70">1. PICK AN OPPONENT</p>
       <div className="mb-4 flex flex-wrap gap-2">
@@ -75,7 +75,7 @@ export function AskPanel({
                 className={`rounded-md border px-3 py-1.5 text-sm font-medium transition ${
                   deck === d
                     ? "border-emerald-400 bg-emerald-900/60 text-emerald-200"
-                    : "border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-500"
+                    : "border-stone-700 bg-stone-900 text-stone-300 hover:border-stone-500"
                 }`}
               >
                 {DECK_LABELS[d] ?? d}

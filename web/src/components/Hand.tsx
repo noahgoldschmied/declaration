@@ -19,7 +19,7 @@ export function Hand({ cards }: { cards: CardId[] }) {
   }, [cards.join(",")]);
 
   if (order.length === 0) {
-    return <p className="text-sm text-slate-600">Empty — you're out of cards.</p>;
+    return <p className="text-sm text-stone-600">Empty — you're out of cards.</p>;
   }
 
   function moveTo(index: number) {
