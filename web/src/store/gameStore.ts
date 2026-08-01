@@ -34,6 +34,7 @@ interface GameStore {
   view: PlayerView | null;
   lastEvent: GameEvent | null;
   actionError: string | null;
+  staleSessionNotice: string | null;
 
   connect(session: SessionInfo): void;
   disconnect(): void;
@@ -47,6 +48,12 @@ interface GameStore {
 
 let socket: WebSocket | null = null;
 let pingTimer: ReturnType<typeof setInterval> | null = null;
+// True once the current connection has actually joined the room (received a
+// RoomState). Distinguishes "was in the room, then dropped" (worth offering a
+// Reconnect retry) from "this session was never valid to begin with" (the
+// room restarted, or the grace period pruned it) — retrying the latter with
+// the same token just fails identically forever.
+let hasJoinedRoom = false;
 
 const SESSION_KEY = "declaration:session";
 
@@ -86,11 +93,13 @@ export const useGameStore = create<GameStore>((set, get) => ({
   view: null,
   lastEvent: null,
   actionError: null,
+  staleSessionNotice: null,
 
   connect(session) {
     get().disconnect();
+    hasJoinedRoom = false;
     saveSession(session);
-    set({ session, status: "connecting", actionError: null });
+    set({ session, status: "connecting", actionError: null, staleSessionNotice: null });
 
     const ws = new WebSocket(wsUrl(session));
     socket = ws;
@@ -107,8 +116,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
     ws.addEventListener("close", () => {
       if (socket === ws) {
-        set({ status: "closed" });
         if (pingTimer) clearInterval(pingTimer);
+        socket = null;
+        if (!hasJoinedRoom) {
+          clearSavedSession();
+          set({
+            session: null,
+            status: "idle",
+            roomState: null,
+            players: [],
+            view: null,
+            lastEvent: null,
+            actionError: null,
+            staleSessionNotice: "Your saved session is no longer valid — the room may have restarted or expired. Please rejoin.",
+          });
+        } else {
+          set({ status: "closed" });
+        }
       }
     });
 
@@ -170,6 +194,7 @@ function handleServerMessage(
     case "Welcome":
       break;
     case "RoomState":
+      hasJoinedRoom = true;
       set({
         roomState: { roomCode: msg.roomCode, phase: msg.phase, hostId: msg.hostId },
         players: msg.players,
@@ -184,6 +209,17 @@ function handleServerMessage(
       break;
     }
     case "ActionError":
+      if (!hasJoinedRoom) {
+        // The server rejected the connect attempt itself (unknown/expired
+        // session token) — no legitimate in-game action error can arrive
+        // before we've ever joined, so treat this as "the session is dead".
+        // Close the socket (not get().disconnect(), which would null out
+        // `socket` immediately and defeat the close handler's `socket === ws`
+        // check) — the close handler's !hasJoinedRoom branch does the
+        // actual state cleanup once the browser fires the close event.
+        socket?.close();
+        break;
+      }
       set({ actionError: msg.reason });
       break;
     case "Pong":

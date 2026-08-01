@@ -4,6 +4,7 @@ import { loadSavedSession, useGameStore } from "../store/gameStore";
 
 export function Landing() {
   const connect = useGameStore((s) => s.connect);
+  const staleSessionNotice = useGameStore((s) => s.staleSessionNotice);
   const [mode, setMode] = useState<"create" | "join">("create");
   const [displayName, setDisplayName] = useState("");
   const [roomCode, setRoomCode] = useState("");
@@ -47,6 +48,12 @@ export function Landing() {
         <h1 className="text-4xl font-bold tracking-tight">Declaration</h1>
         <p className="mt-1 text-slate-400">A 6-player team card game of memory and deduction.</p>
       </div>
+
+      {staleSessionNotice && (
+        <p className="max-w-sm rounded-md border border-amber-800 bg-amber-950/40 px-3 py-2 text-center text-sm text-amber-300">
+          {staleSessionNotice}
+        </p>
+      )}
 
       {saved && (
         <button
