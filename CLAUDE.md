@@ -20,7 +20,7 @@ Canonical references (read before non-trivial work — the sections below are co
 - ✅ **M4 — REST + Spring wiring.** `POST /api/rooms` (201) + `POST /api/rooms/{code}/join` (200/404/409), bodies `{displayName}`. `config/RoomConfig` exposes `RoomRegistry`/`Engine`/`SecureRandom`-backed `Random`/grace `Duration`/app `CoroutineScope` (cancelled on shutdown) as beans. Controller bridges blocking MVC → suspend registry via `runBlocking`. `room/` + `domain/` stay Spring-free; only `config/` and `rest/` touch Spring.
 - ✅ **M5 — WebSocket.** `ws/GameWebSocketHandler` at `/ws/room/{code}?session={token}` adapts `WebSocketSession`→`ClientSink`, decodes `ClientMessage`, routes to the room, broadcasts `ServerMessage`. Wire format is kotlinx.serialization JSON with a `type` discriminator (`protocol/WireJson`); domain + protocol types are `@Serializable`, `GameState` deliberately is not. The game is **playable end-to-end** (server side). Connect e.g. with `websocat 'ws://localhost:8080/ws/room/{CODE}?session={TOKEN}'`.
 - ✅ **M6–8 — Web client (`web/`).** Vite + React 19 + TS + Tailwind 3 + Zustand. `protocol/messages.ts` + `protocol/deckCatalog.ts` hand-mirror the Kotlin wire types and `DeckCatalog`. `store/gameStore.ts` owns the WebSocket connection + all server-message handling. Landing (create/join, localStorage session for rejoin) → RoomLobby (roster, team-pick, host-gated start) → Table (hands, turn indicator, ask/declare panels, captured-deck scoreboard, transient event flash per the "memory only" rule, winner banner). Dev-time Vite proxy to the server (`BACKEND_PORT` env var to override the default 8080) so no server-side CORS config is needed. Verified end-to-end with a real 6-player game driven through the actual UI.
-- ⬜ **M9 — Polish.** Reconnection UX, action timeouts, error toasts.
+- 🟡 **M9 — Polish.** Reconnection UX done (see below); action timeouts and error toasts still open.
 
 Each milestone is implemented on a `milestone-N-*` branch via TDD + subagent review, then merged `--no-ff` to `main` locally. Plans live in `docs/superpowers/plans/`.
 
@@ -67,6 +67,8 @@ Server (`cd server` first):
 | Run one test class | `./gradlew test --tests com.declaration.rest.HealthControllerTest` |
 | Run one test method | `./gradlew test --tests 'com.declaration.rest.HealthControllerTest.healthz returns 200 ok'` |
 | Clean build | `./gradlew clean build` |
+| Build a single deployable jar (embeds the web client) | `./gradlew bootJar` → `build/libs/server-0.0.1-SNAPSHOT.jar` |
+| Run the deployable jar | `java -jar build/libs/server-0.0.1-SNAPSHOT.jar` (serves the API and the built web client together on one port, e.g. `--server.port=8090`) |
 
 Web (`cd web` first):
 
@@ -77,6 +79,17 @@ Web (`cd web` first):
 | Run against a non-default server port | `BACKEND_PORT=8081 pnpm dev` |
 | Typecheck | `npx tsc -b` |
 | Production build | `pnpm build` |
+
+## Deploying
+
+`server/build.gradle.kts` wires the web client into the backend's own build: `./gradlew bootJar` runs `pnpm install` + `pnpm build` in `web/`, then embeds `web/dist` directly into the jar at `BOOT-INF/classes/static` (Spring's default static-resource classpath location) via the `bootJar` task's own copy spec — not through `processResources`/`build/resources/main`, so routine `./gradlew test` runs are untouched by the frontend build. The result is one runnable jar serving the API and the UI from the same origin, so no CORS config is needed in production. The app has no server-side client-side routing to worry about (screens are switched by state in `App.tsx`, not URL routes), so there's no SPA-fallback-route concern either.
+
+Reconnection hardening (session lifecycle, since this matters more once this leaves localhost):
+- A room with zero remaining sessions (everyone's grace period has expired, including a session that was created via REST `/join` but never actually opened a WebSocket) is removed from `RoomRegistry` entirely, so abandoned rooms don't accumulate forever in memory.
+- Connecting with an unknown/expired session token gets an explicit `ActionError` instead of the socket silently sitting open with nothing ever arriving; the web client treats that (or a close before ever receiving `RoomState`) as "this saved session is dead," clears it, and returns to Landing instead of offering an infinite dead "Reconnect" loop.
+- Rejoining by display name after the game has started reconnects a currently-disconnected existing player as themselves (same cards, same team) rather than unconditionally refusing with "game already started" — covers losing the session token (cleared storage, new device/browser). A genuinely new name is still refused once the game is running.
+
+Known gap, not yet fixed: `POST /api/rooms` has no rate limiting, so this is only safe behind a private/unlisted URL — publicly exposing it as-is allows unbounded room creation.
 
 ## Out of scope for v1 (don't add unprompted)
 
