@@ -6,10 +6,12 @@
 FROM eclipse-temurin:21-jdk-jammy AS build
 
 # Gradle's bootJar task shells out to pnpm to build web/ (server/build.gradle.kts),
-# so the build stage needs Node + pnpm alongside the JDK.
+# so the build stage needs Node + pnpm alongside the JDK. Node 22+ specifically:
+# corepack fetches the latest pnpm (no packageManager pin in web/package.json),
+# and pnpm 11 requires node:sqlite, which only exists from Node 22.13 on.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl ca-certificates \
-    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && corepack enable \
     && rm -rf /var/lib/apt/lists/*
