@@ -27,7 +27,7 @@ class RoomRegistry(
     /** Create a fresh room and join [hostName] as the host. */
     suspend fun create(hostName: String): CreatedRoom {
         val code = freshCode()
-        val room = Room(code, engine, random, gracePeriod, scope)
+        val room = Room(code, engine, random, gracePeriod, scope, onEmpty = { rooms.remove(code) })
         rooms[code] = room
         val host = room.join(hostName)
         return CreatedRoom(code, host)

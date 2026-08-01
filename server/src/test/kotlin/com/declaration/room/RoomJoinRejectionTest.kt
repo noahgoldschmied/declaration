@@ -49,4 +49,36 @@ class RoomJoinRejectionTest {
         advanceUntilIdle()
         assertEquals("p0", result.playerId.value)
     }
+
+    @Test
+    fun `rejoining by name after the game started reconnects a disconnected player`() = runTest {
+        val room = room(backgroundScope)
+        val tokens = (0 until 6).map { room.join("p$it") }
+        val teams = listOf(TEAM_RED, TEAM_BLUE, TEAM_RED, TEAM_BLUE, TEAM_RED, TEAM_BLUE)
+        tokens.zip(teams).forEach { (t, team) -> room.chooseTeam(t.sessionToken, team) }
+        room.startGame(tokens[0].sessionToken)
+        advanceUntilIdle()
+
+        // p0 never attached a sink in this test, so they're already "disconnected"
+        // (sink == null) — mirrors losing the session token client-side.
+        val rejoined = room.join("p0")
+        advanceUntilIdle()
+
+        assertEquals(tokens[0].playerId, rejoined.playerId)
+        assertEquals(tokens[0].sessionToken, rejoined.sessionToken)
+    }
+
+    @Test
+    fun `rejoining by name is refused while the original session is still connected`() = runTest {
+        val room = room(backgroundScope)
+        val tokens = (0 until 6).map { room.join("p$it") }
+        val teams = listOf(TEAM_RED, TEAM_BLUE, TEAM_RED, TEAM_BLUE, TEAM_RED, TEAM_BLUE)
+        tokens.zip(teams).forEach { (t, team) -> room.chooseTeam(t.sessionToken, team) }
+        room.connect(tokens[0].sessionToken, FakeSink())
+        room.startGame(tokens[0].sessionToken)
+        advanceUntilIdle()
+
+        val ex = assertFailsWith<RoomJoinException> { room.join("p0") }
+        assertEquals("game already started", ex.reason)
+    }
 }

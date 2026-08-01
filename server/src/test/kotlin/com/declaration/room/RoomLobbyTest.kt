@@ -117,12 +117,13 @@ class RoomLobbyTest {
     }
 
     @Test
-    fun `connect with an unknown token is ignored`() = runTest {
+    fun `connect with an unknown token gets an explicit rejection, not silence`() = runTest {
         val room = room(backgroundScope)
         room.join("Alice")
         val sink = FakeSink()
         room.connect("not-a-real-token", sink)
         advanceUntilIdle()
-        assertTrue(sink.messages.isEmpty(), "unknown token should receive nothing")
+        val err = sink.last<ServerMessage.ActionError>()
+        assertNotNull(err, "unknown token should get an explicit ActionError, not silence")
     }
 }

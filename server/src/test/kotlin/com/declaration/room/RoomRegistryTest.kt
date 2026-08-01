@@ -2,6 +2,7 @@ package com.declaration.room
 
 import com.declaration.domain.DeclarationEngine
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.random.Random
@@ -64,5 +65,43 @@ class RoomRegistryTest {
         val codes = (0 until 50).map { registry.create("p$it").code }
         advanceUntilIdle()
         assertEquals(codes.size, codes.toSet().size, "all room codes must be unique")
+    }
+
+    @Test
+    fun `a room nobody ever connects to eventually stops being reachable`() = runTest {
+        val registry = registry(backgroundScope)
+        val created = registry.create("Alice")
+        advanceTimeBy(121.seconds) // grace period elapses; the host never opened a WS
+        advanceUntilIdle()
+
+        assertNull(registry.get(created.code), "an abandoned room should eventually be reaped")
+    }
+
+    @Test
+    fun `a room stays reachable while at least one player is connected`() = runTest {
+        val registry = registry(backgroundScope)
+        val created = registry.create("Alice")
+        val room = registry.get(created.code)!!
+        room.connect(created.host.sessionToken, FakeSink())
+        advanceTimeBy(121.seconds)
+        advanceUntilIdle()
+
+        assertNotNull(registry.get(created.code), "a room with a connected player must not be reaped")
+    }
+
+    @Test
+    fun `a room is reaped once every connected player disconnects and the grace period elapses`() = runTest {
+        val registry = registry(backgroundScope)
+        val created = registry.create("Alice")
+        val room = registry.get(created.code)!!
+        room.connect(created.host.sessionToken, FakeSink())
+        advanceUntilIdle()
+        assertNotNull(registry.get(created.code))
+
+        room.disconnect(created.host.sessionToken)
+        advanceTimeBy(121.seconds)
+        advanceUntilIdle()
+
+        assertNull(registry.get(created.code), "everyone left for good — the room should be reaped")
     }
 }

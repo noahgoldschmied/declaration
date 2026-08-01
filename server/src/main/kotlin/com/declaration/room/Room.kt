@@ -32,6 +32,7 @@ class Room(
     private val random: Random,
     private val gracePeriod: Duration,
     private val scope: CoroutineScope,
+    private val onEmpty: () -> Unit = {},
 ) {
     private val inbox = Channel<RoomCommand>(Channel.BUFFERED)
 
@@ -108,6 +109,17 @@ class Room(
 
     private suspend fun handleJoin(cmd: RoomCommand.Join) {
         if (phase != RoomPhase.LOBBY) {
+            // No *new* players once the game has started — but if this display name
+            // belongs to a currently-disconnected existing player (they lost their
+            // session token: cleared storage, new device, different browser), let
+            // them straight back in as that same player rather than locking them
+            // out for the rest of the game. Only matches disconnected sessions, so
+            // it can't hijack someone who's still actively connected.
+            val existing = sessions.values.firstOrNull { it.displayName == cmd.displayName && it.sink == null }
+            if (existing != null) {
+                cmd.reply.complete(JoinResult(existing.playerId, existing.token))
+                return
+            }
             cmd.reply.completeExceptionally(RoomJoinException("game already started"))
             return
         }
@@ -125,11 +137,29 @@ class Room(
         sessions[token] = session
         if (hostToken == null) hostToken = token
         cmd.reply.complete(JoinResult(session.playerId, token))
+        // Start the same grace clock a disconnect would — a REST join only issues
+        // a token, it doesn't itself prove a client ever showed up to use it (the
+        // WS connect is a separate follow-up request that might never happen: an
+        // abandoned tab, a network failure, a stray test script). handleConnect()
+        // bumps disconnectEpoch on a real connect, invalidating this exactly like
+        // a genuine reconnect would — so a session that *does* connect is
+        // unaffected, and one that never does gets swept like any other.
+        scheduleCleanup(session)
         broadcastRoomState()
     }
 
     private suspend fun handleConnect(cmd: RoomCommand.Connect) {
-        val session = sessions[cmd.sessionToken] ?: return
+        val session = sessions[cmd.sessionToken]
+        if (session == null) {
+            // Unknown token: either the grace-period cleanup already pruned this
+            // session, or (after a server restart) the room itself is a fresh,
+            // empty in-memory instance that never saw this token. Say so
+            // explicitly rather than leaving the socket open with nothing ever
+            // arriving — the client can't otherwise tell "stale session" apart
+            // from "still connecting".
+            cmd.sink.send(ServerMessage.ActionError("session not found — it may have expired or the room restarted"))
+            return
+        }
         session.sink = cmd.sink
         session.disconnectEpoch++ // invalidate any pending cleanup
         sendTo(session, ServerMessage.Welcome(session.playerId, session.token, session.displayName))
@@ -201,6 +231,11 @@ class Room(
     private suspend fun handleDisconnect(cmd: RoomCommand.Disconnect) {
         val session = sessions[cmd.sessionToken] ?: return
         session.sink = null
+        scheduleCleanup(session)
+        broadcastRoomState()
+    }
+
+    private fun scheduleCleanup(session: Session) {
         session.disconnectEpoch++
         val epoch = session.disconnectEpoch
         val token = session.token
@@ -208,7 +243,6 @@ class Room(
             delay(gracePeriod)
             submit(RoomCommand.CleanupDisconnect(token, epoch))
         }
-        broadcastRoomState()
     }
 
     private suspend fun handleCleanupDisconnect(cmd: RoomCommand.CleanupDisconnect) {
@@ -221,6 +255,13 @@ class Room(
                 // or null if the room is now empty.
                 hostToken = sessions.keys.firstOrNull()
             }
+            // Nobody left at all (host abandoned, or the whole table finished and
+            // scattered) — tell the registry so this room stops being reachable
+            // and can eventually be garbage collected. We deliberately don't try
+            // to tear down this room's own coroutine/channel here; it's cheap to
+            // leave idling and doing so safely (without racing a stray in-flight
+            // submit()) isn't worth the complexity at this project's scale.
+            if (sessions.isEmpty()) onEmpty()
             broadcastRoomState()
         }
     }
