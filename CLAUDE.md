@@ -91,6 +91,20 @@ Reconnection hardening (session lifecycle, since this matters more once this lea
 
 Known gap, not yet fixed: `POST /api/rooms` has no rate limiting, so this is only safe behind a private/unlisted URL — publicly exposing it as-is allows unbounded room creation.
 
+### Heroku (container deploy)
+
+Root-level `Dockerfile` + `heroku.yml` deploy the same single jar described above via Heroku's container stack (not a buildpack — the repo is a monorepo with no root build file, and the build needs both a JDK and Node/pnpm in the same stage since `bootJar` shells out to pnpm). `server/src/main/resources/application.properties` reads `server.port=${PORT:8080}` so it binds to whatever port Heroku assigns, falling back to 8080 locally.
+
+**Must stay a single dyno (`web=1`).** `RoomRegistry` is in-memory per JVM process; scaling to 2+ dynos would split rooms across processes with no shared state, so a player could get routed to a dyno that's never heard of their room. This isn't enforced in code — it's an operational constraint.
+
+One-time setup (run these yourself — they touch your Heroku account, not something to hand to an agent):
+```
+heroku create <app-name>
+heroku stack:set container -a <app-name>
+git push heroku main
+```
+Redeploy the same way any time `main` moves: `git push heroku main`.
+
 ## Out of scope for v1 (don't add unprompted)
 
 Per the spec: accounts/login, persistence, matchmaking, spectators, in-game chat, mobile-first UI, multi-instance scaling, replay storage. The architecture is designed so these are additive later — keep them out for now.
