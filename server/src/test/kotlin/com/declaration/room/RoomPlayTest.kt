@@ -2,6 +2,7 @@ package com.declaration.room
 
 import com.declaration.domain.Action
 import com.declaration.domain.CardId
+import com.declaration.domain.DeckId
 import com.declaration.domain.DeclarationEngine
 import com.declaration.domain.TEAM_BLUE
 import com.declaration.domain.TEAM_RED
@@ -83,5 +84,103 @@ class RoomPlayTest {
         advanceUntilIdle()
 
         assertEquals(20, sinks[0].all<ServerMessage.ActionError>().size)
+    }
+
+    @Test
+    fun `setDeclaring broadcasts the declaring set to every player`() = runTest {
+        val room = room(backgroundScope)
+        val (tokens, sinks) = startedGame(room)
+        advanceUntilIdle()
+        sinks.forEach { it.clear() }
+
+        room.setDeclaring(tokens[0].sessionToken, true)
+        advanceUntilIdle()
+
+        sinks.forEach { sink ->
+            assertEquals(setOf(tokens[0].playerId), sink.last<ServerMessage.DeclaringPlayers>()?.playerIds)
+        }
+    }
+
+    @Test
+    fun `submitting a declare auto-clears isDeclaring without a separate SetDeclaring(false)`() = runTest {
+        val room = room(backgroundScope)
+        val (tokens, sinks) = startedGame(room)
+        advanceUntilIdle()
+        room.setDeclaring(tokens[0].sessionToken, true)
+        advanceUntilIdle()
+        sinks.forEach { it.clear() }
+
+        val lowSpades = setOf("2S", "3S", "4S", "5S", "6S", "7S").map { CardId(it) }
+        room.submitAction(tokens[0].sessionToken, Action.Declare(DeckId("LOW_S"), lowSpades.associateWith { tokens[0].playerId }))
+        advanceUntilIdle()
+
+        assertEquals(emptySet(), sinks[0].last<ServerMessage.DeclaringPlayers>()?.playerIds)
+    }
+
+    @Test
+    fun `disconnecting while declaring clears it for everyone`() = runTest {
+        val room = room(backgroundScope)
+        val (tokens, sinks) = startedGame(room)
+        advanceUntilIdle()
+        room.setDeclaring(tokens[0].sessionToken, true)
+        advanceUntilIdle()
+        sinks.forEach { it.clear() }
+
+        room.disconnect(tokens[0].sessionToken)
+        advanceUntilIdle()
+
+        assertEquals(emptySet(), sinks[1].last<ServerMessage.DeclaringPlayers>()?.playerIds)
+    }
+
+    @Test
+    fun `another player's action is rejected while someone is declaring`() = runTest {
+        val room = room(backgroundScope)
+        val (tokens, sinks) = startedGame(room)
+        advanceUntilIdle()
+        room.setDeclaring(tokens[0].sessionToken, true)
+        advanceUntilIdle()
+        sinks.forEach { it.clear() }
+
+        room.submitAction(tokens[1].sessionToken, Action.Ask(tokens[2].playerId, CardId("3S")))
+        advanceUntilIdle()
+
+        val err = sinks[1].last<ServerMessage.ActionError>()
+        assertNotNull(err)
+        assertEquals("A is declaring — the game is paused", err.reason)
+    }
+
+    @Test
+    fun `a second player cannot start declaring while another already is`() = runTest {
+        val room = room(backgroundScope)
+        val (tokens, sinks) = startedGame(room)
+        advanceUntilIdle()
+        room.setDeclaring(tokens[0].sessionToken, true)
+        advanceUntilIdle()
+        sinks.forEach { it.clear() }
+
+        room.setDeclaring(tokens[1].sessionToken, true)
+        advanceUntilIdle()
+
+        val err = sinks[1].last<ServerMessage.ActionError>()
+        assertNotNull(err)
+        assertEquals("A is already declaring — wait for them to finish", err.reason)
+        // Rejected -- no new broadcast, so nobody's told player B is declaring too.
+        assertEquals(0, sinks[1].all<ServerMessage.DeclaringPlayers>().size)
+    }
+
+    @Test
+    fun `the declaring player's own action is not blocked by their own declaring flag`() = runTest {
+        val room = room(backgroundScope)
+        val (tokens, sinks) = startedGame(room)
+        advanceUntilIdle()
+        room.setDeclaring(tokens[0].sessionToken, true)
+        advanceUntilIdle()
+        sinks.forEach { it.clear() }
+
+        val lowSpades = setOf("2S", "3S", "4S", "5S", "6S", "7S").map { CardId(it) }
+        room.submitAction(tokens[0].sessionToken, Action.Declare(DeckId("LOW_S"), lowSpades.associateWith { tokens[0].playerId }))
+        advanceUntilIdle()
+
+        assertEquals(0, sinks[0].all<ServerMessage.ActionError>().count { it.reason.contains("paused") })
     }
 }

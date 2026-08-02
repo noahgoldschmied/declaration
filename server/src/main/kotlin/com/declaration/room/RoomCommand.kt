@@ -3,6 +3,7 @@ package com.declaration.room
 import com.declaration.domain.Action
 import com.declaration.domain.PlayerId
 import com.declaration.domain.TeamId
+import com.declaration.protocol.BotDifficulty
 import kotlinx.coroutines.CompletableDeferred
 
 /** The result of a join: the new player's public id and secret session token. */
@@ -28,8 +29,39 @@ sealed class RoomCommand {
     /** Host: begin the game. */
     data class StartGame(val sessionToken: String) : RoomCommand()
 
+    /**
+     * Host, lobby only: seat a bot. [candidateNames] is tried in order and the first name not
+     * already held by a seated player is used (falls back to a numbered suffix on the first
+     * candidate if every candidate collides) -- resolved inside the room's serial handler so two
+     * bots can never land on the same name. Completes [reply] with the new identity, or null on
+     * rejection.
+     */
+    data class AddBot(
+        val hostSessionToken: String,
+        val candidateNames: List<String>,
+        val team: TeamId,
+        val difficulty: BotDifficulty,
+        val sink: ClientSink,
+        val reply: CompletableDeferred<JoinResult?>,
+    ) : RoomCommand()
+
+    /** Host, lobby only: remove a player (bot or human), freeing their seat. */
+    data class KickPlayer(val sessionToken: String, val targetPlayerId: PlayerId) : RoomCommand()
+
+    /** Host, lobby only: shuffle all seated players into a new random team split. */
+    data class RandomizeTeams(val sessionToken: String) : RoomCommand()
+
+    /**
+     * Host, lobby only: choose whether the move-history sidebar is on for everyone this game,
+     * and how many recent moves it shows. [visibleCount] is clamped server-side.
+     */
+    data class SetMoveHistoryEnabled(val sessionToken: String, val enabled: Boolean, val visibleCount: Int) : RoomCommand()
+
     /** In-game: submit a move. */
     data class SubmitAction(val sessionToken: String, val action: Action) : RoomCommand()
+
+    /** In-game: the sender opened/closed the declare panel -- a presence signal, see [com.declaration.protocol.ClientMessage.SetDeclaring]. */
+    data class SetDeclaring(val sessionToken: String, val declaring: Boolean) : RoomCommand()
 
     /** Keepalive. */
     data class Ping(val sessionToken: String) : RoomCommand()

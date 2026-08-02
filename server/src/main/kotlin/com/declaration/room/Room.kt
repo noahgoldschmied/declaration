@@ -10,6 +10,8 @@ import com.declaration.domain.PlayerId
 import com.declaration.domain.Redactor
 import com.declaration.domain.Setup
 import com.declaration.domain.TeamId
+import com.declaration.protocol.BotDifficulty
+import com.declaration.protocol.MoveHistoryLimits
 import com.declaration.protocol.PlayerInfo
 import com.declaration.protocol.RoomPhase
 import com.declaration.protocol.ServerMessage
@@ -42,6 +44,8 @@ class Room(
     private var phase: RoomPhase = RoomPhase.LOBBY
     private var game: GameState? = null
     private var joinCount = 0
+    private var moveHistoryEnabled: Boolean = false
+    private var moveHistoryVisibleCount: Int = MoveHistoryLimits.DEFAULT_VISIBLE_COUNT
 
     private class Session(
         val playerId: PlayerId,
@@ -50,6 +54,9 @@ class Room(
         var team: TeamId? = null,
         var sink: ClientSink? = null,
         var disconnectEpoch: Int = 0,
+        val isBot: Boolean = false,
+        val botDifficulty: BotDifficulty? = null,
+        var isDeclaring: Boolean = false,
     )
 
     init {
@@ -83,8 +90,39 @@ class Room(
     suspend fun startGame(sessionToken: String) =
         submit(RoomCommand.StartGame(sessionToken))
 
+    /**
+     * Seats a bot. Returns null (and sends the host an [ServerMessage.ActionError]) if the
+     * host/phase/capacity/team checks fail; the caller is expected to have already built
+     * [sink] and to wire the returned token into it afterward (the token doesn't exist until
+     * this call assigns one). See [RoomCommand.AddBot] for how [candidateNames] resolves to a
+     * name that doesn't collide with any currently seated player.
+     */
+    suspend fun addBot(
+        hostSessionToken: String,
+        candidateNames: List<String>,
+        team: TeamId,
+        difficulty: BotDifficulty,
+        sink: ClientSink,
+    ): JoinResult? {
+        val reply = CompletableDeferred<JoinResult?>()
+        submit(RoomCommand.AddBot(hostSessionToken, candidateNames, team, difficulty, sink, reply))
+        return reply.await()
+    }
+
+    suspend fun kickPlayer(hostSessionToken: String, targetPlayerId: PlayerId) =
+        submit(RoomCommand.KickPlayer(hostSessionToken, targetPlayerId))
+
+    suspend fun randomizeTeams(hostSessionToken: String) =
+        submit(RoomCommand.RandomizeTeams(hostSessionToken))
+
+    suspend fun setMoveHistoryEnabled(hostSessionToken: String, enabled: Boolean, visibleCount: Int) =
+        submit(RoomCommand.SetMoveHistoryEnabled(hostSessionToken, enabled, visibleCount))
+
     suspend fun submitAction(sessionToken: String, action: Action) =
         submit(RoomCommand.SubmitAction(sessionToken, action))
+
+    suspend fun setDeclaring(sessionToken: String, declaring: Boolean) =
+        submit(RoomCommand.SetDeclaring(sessionToken, declaring))
 
     suspend fun ping(sessionToken: String) = submit(RoomCommand.Ping(sessionToken))
 
@@ -98,7 +136,12 @@ class Room(
             is RoomCommand.Connect -> handleConnect(cmd)
             is RoomCommand.ChooseTeam -> handleChooseTeam(cmd)
             is RoomCommand.StartGame -> handleStartGame(cmd)
+            is RoomCommand.AddBot -> handleAddBot(cmd)
+            is RoomCommand.KickPlayer -> handleKickPlayer(cmd)
+            is RoomCommand.RandomizeTeams -> handleRandomizeTeams(cmd)
+            is RoomCommand.SetMoveHistoryEnabled -> handleSetMoveHistoryEnabled(cmd)
             is RoomCommand.SubmitAction -> handleSubmitAction(cmd)
+            is RoomCommand.SetDeclaring -> handleSetDeclaring(cmd)
             is RoomCommand.Ping -> {
                 sessions[cmd.sessionToken]?.let { sendTo(it, ServerMessage.Pong) }
             }
@@ -209,6 +252,104 @@ class Room(
         broadcastGameUpdate(emptyList())
     }
 
+    private suspend fun handleAddBot(cmd: RoomCommand.AddBot) {
+        val hostSession = sessions[cmd.hostSessionToken]
+        if (hostSession == null || cmd.hostSessionToken != hostToken) {
+            hostSession?.let { sendTo(it, ServerMessage.ActionError("only the host can add a bot")) }
+            cmd.reply.complete(null)
+            return
+        }
+        if (phase != RoomPhase.LOBBY) {
+            sendTo(hostSession, ServerMessage.ActionError("cannot add a bot after the game has started"))
+            cmd.reply.complete(null)
+            return
+        }
+        if (sessions.size >= 6) {
+            sendTo(hostSession, ServerMessage.ActionError("room is full"))
+            cmd.reply.complete(null)
+            return
+        }
+        val onTeam = sessions.values.count { it.team == cmd.team }
+        if (onTeam >= 3) {
+            sendTo(hostSession, ServerMessage.ActionError("team ${cmd.team.value} is full"))
+            cmd.reply.complete(null)
+            return
+        }
+        val takenNames = sessions.values.mapTo(HashSet()) { it.displayName }
+        val name = cmd.candidateNames.firstOrNull { it !in takenNames }
+            ?: "${cmd.candidateNames.first()} ${sessions.size + 1}"
+        val index = joinCount++
+        val token = Tokens.generate(random)
+        val session = Session(
+            playerId = PlayerId("p$index"),
+            token = token,
+            displayName = name,
+            team = cmd.team,
+            sink = cmd.sink,
+            isBot = true,
+            botDifficulty = cmd.difficulty,
+        )
+        sessions[token] = session
+        cmd.reply.complete(JoinResult(session.playerId, token))
+        broadcastRoomState()
+    }
+
+    private suspend fun handleKickPlayer(cmd: RoomCommand.KickPlayer) {
+        val hostSession = sessions[cmd.sessionToken] ?: return
+        if (cmd.sessionToken != hostToken) {
+            sendTo(hostSession, ServerMessage.ActionError("only the host can remove a player"))
+            return
+        }
+        if (phase != RoomPhase.LOBBY) {
+            sendTo(hostSession, ServerMessage.ActionError("cannot remove a player after the game has started"))
+            return
+        }
+        if (cmd.targetPlayerId == hostSession.playerId) {
+            sendTo(hostSession, ServerMessage.ActionError("cannot remove yourself"))
+            return
+        }
+        val target = sessions.values.firstOrNull { it.playerId == cmd.targetPlayerId }
+        if (target == null) {
+            sendTo(hostSession, ServerMessage.ActionError("player not found"))
+            return
+        }
+        sendTo(target, ServerMessage.Kicked)
+        sessions.remove(target.token)
+        broadcastRoomState()
+    }
+
+    private suspend fun handleRandomizeTeams(cmd: RoomCommand.RandomizeTeams) {
+        val hostSession = sessions[cmd.sessionToken] ?: return
+        if (cmd.sessionToken != hostToken) {
+            sendTo(hostSession, ServerMessage.ActionError("only the host can randomize teams"))
+            return
+        }
+        if (phase != RoomPhase.LOBBY) {
+            sendTo(hostSession, ServerMessage.ActionError("cannot randomize teams after the game has started"))
+            return
+        }
+        val shuffled = sessions.values.shuffled(random)
+        shuffled.forEachIndexed { i, session ->
+            session.team = if (i % 2 == 0) com.declaration.domain.TEAM_RED else com.declaration.domain.TEAM_BLUE
+        }
+        broadcastRoomState()
+    }
+
+    private suspend fun handleSetMoveHistoryEnabled(cmd: RoomCommand.SetMoveHistoryEnabled) {
+        val hostSession = sessions[cmd.sessionToken] ?: return
+        if (cmd.sessionToken != hostToken) {
+            sendTo(hostSession, ServerMessage.ActionError("only the host can change the move history setting"))
+            return
+        }
+        if (phase != RoomPhase.LOBBY) {
+            sendTo(hostSession, ServerMessage.ActionError("move history is locked once the game has started"))
+            return
+        }
+        moveHistoryEnabled = cmd.enabled
+        moveHistoryVisibleCount = cmd.visibleCount.coerceIn(MoveHistoryLimits.MIN_VISIBLE_COUNT, MoveHistoryLimits.MAX_VISIBLE_COUNT)
+        broadcastRoomState()
+    }
+
     private suspend fun handleSubmitAction(cmd: RoomCommand.SubmitAction) {
         val session = sessions[cmd.sessionToken] ?: return
         val current = game
@@ -216,10 +357,22 @@ class Room(
             sendTo(session, ServerMessage.ActionError("game is not in progress"))
             return
         }
+        val declarer = sessions.values.firstOrNull { it.isDeclaring && it !== session }
+        if (declarer != null) {
+            sendTo(session, ServerMessage.ActionError("${declarer.displayName} is declaring — the game is paused"))
+            return
+        }
         when (val result = engine.apply(current, session.playerId, cmd.action)) {
             is ActionResult.Ok -> {
                 game = result.newState
                 if (result.newState.phase == Phase.ENDED) phase = RoomPhase.ENDED
+                // A submitted declaration ends that player's "declaring" episode either way
+                // (correct or not) -- clear it here rather than relying on the client to also
+                // send SetDeclaring(false), so a dropped message can't leave a stale banner.
+                if (cmd.action is Action.Declare && session.isDeclaring) {
+                    session.isDeclaring = false
+                    broadcastDeclaringPlayers()
+                }
                 broadcastGameUpdate(result.events)
             }
             is ActionResult.Invalid -> {
@@ -228,11 +381,34 @@ class Room(
         }
     }
 
+    private suspend fun handleSetDeclaring(cmd: RoomCommand.SetDeclaring) {
+        val session = sessions[cmd.sessionToken] ?: return
+        if (session.isDeclaring == cmd.declaring) return
+        if (cmd.declaring) {
+            val declarer = sessions.values.firstOrNull { it.isDeclaring && it !== session }
+            if (declarer != null) {
+                sendTo(session, ServerMessage.ActionError("${declarer.displayName} is already declaring — wait for them to finish"))
+                return
+            }
+        }
+        session.isDeclaring = cmd.declaring
+        broadcastDeclaringPlayers()
+    }
+
+    private suspend fun broadcastDeclaringPlayers() {
+        val declaring = sessions.values.filter { it.isDeclaring }.map { it.playerId }.toSet()
+        val message = ServerMessage.DeclaringPlayers(declaring)
+        sessions.values.forEach { it.sink?.send(message) }
+    }
+
     private suspend fun handleDisconnect(cmd: RoomCommand.Disconnect) {
         val session = sessions[cmd.sessionToken] ?: return
         session.sink = null
+        val wasDeclaring = session.isDeclaring
+        session.isDeclaring = false
         scheduleCleanup(session)
         broadcastRoomState()
+        if (wasDeclaring) broadcastDeclaringPlayers()
     }
 
     private fun scheduleCleanup(session: Session) {
@@ -251,17 +427,22 @@ class Room(
         if (session.sink == null && session.disconnectEpoch == cmd.epoch) {
             sessions.remove(cmd.sessionToken)
             if (cmd.sessionToken == hostToken) {
-                // Host left for good: hand off to the next remaining player (insertion order),
-                // or null if the room is now empty.
-                hostToken = sessions.keys.firstOrNull()
+                // Host left for good: hand off to the next remaining human (insertion order) —
+                // a bot can't usefully be host — falling back to a bot only if no humans remain
+                // (which triggers the all-bot cleanup below anyway).
+                hostToken = sessions.keys.firstOrNull { !sessions.getValue(it).isBot } ?: sessions.keys.firstOrNull()
             }
-            // Nobody left at all (host abandoned, or the whole table finished and
-            // scattered) — tell the registry so this room stops being reachable
-            // and can eventually be garbage collected. We deliberately don't try
-            // to tear down this room's own coroutine/channel here; it's cheap to
-            // leave idling and doing so safely (without racing a stray in-flight
-            // submit()) isn't worth the complexity at this project's scale.
-            if (sessions.isEmpty()) onEmpty()
+            // Bots never disconnect on their own (no real socket), so "sessions.isEmpty()" alone
+            // would never be true again once a bot-holding room's last human leaves — a silent
+            // leak. Treat "no humans left" as empty instead, and drop any leftover bot sessions
+            // too so nothing lingers referencing a dead room. We deliberately don't try to tear
+            // down this room's own coroutine/channel here; it's cheap to leave idling and doing
+            // so safely (without racing a stray in-flight submit()) isn't worth the complexity
+            // at this project's scale.
+            if (sessions.values.all { it.isBot }) {
+                sessions.clear()
+                onEmpty()
+            }
             broadcastRoomState()
         }
     }
@@ -279,8 +460,12 @@ class Room(
                     displayName = it.displayName,
                     team = it.team,
                     connected = it.sink != null,
+                    isBot = it.isBot,
+                    botDifficulty = it.botDifficulty,
                 )
             },
+            moveHistoryEnabled = moveHistoryEnabled,
+            moveHistoryVisibleCount = moveHistoryVisibleCount,
         )
 
     private suspend fun broadcastRoomState() {

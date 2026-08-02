@@ -62,9 +62,11 @@ function RulesContent() {
       <section>
         <h3 className="mb-1 font-display text-lg text-amber-400">Memory only</h3>
         <p>
-          Every ask and its outcome is shown briefly, then disappears. There's no history log. You must remember
-          what's happened — which cards moved, which players have proven they don't hold a card, and which have
-          been revealed to hold one.
+          Every ask and its outcome is shown on screen until the next move happens, then it's replaced. By default
+          there's no history log — you must remember what's happened yourself: which cards moved, which players
+          have proven they don't hold a card, and which have been revealed to hold one. If you'd rather have the
+          help, "Show recent moves" is an optional toggle that keeps a running log for the current session — off by
+          default so the game stays memory-only unless you turn it on.
         </p>
       </section>
 

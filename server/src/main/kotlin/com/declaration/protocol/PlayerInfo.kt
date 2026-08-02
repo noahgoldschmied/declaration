@@ -11,6 +11,8 @@ data class PlayerInfo(
     val displayName: String,
     val team: TeamId?,        // null until the player picks a team in the lobby
     val connected: Boolean,   // false while their WebSocket is detached
+    val isBot: Boolean = false,
+    val botDifficulty: BotDifficulty? = null,   // null for humans
 )
 
 /** Lifecycle phase of a room, as seen by clients. */

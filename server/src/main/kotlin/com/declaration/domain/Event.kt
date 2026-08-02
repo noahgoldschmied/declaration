@@ -25,5 +25,10 @@ sealed class Event {
         val assignments: Map<CardId, PlayerId>,
         val correct: Boolean,
         val awardedTo: TeamId,
+        // The deck's true holder for each card, as it stood right before this declare captured
+        // it. Equal to `assignments` when `correct`. Safe to reveal unconditionally -- the deck
+        // is removed from play by this same event either way, so there's no future strategic
+        // information being leaked, only a look back at who really had what.
+        val actualHolders: Map<CardId, PlayerId>,
     ) : Event()
 }

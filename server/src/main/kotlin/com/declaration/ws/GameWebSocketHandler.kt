@@ -1,5 +1,6 @@
 package com.declaration.ws
 
+import com.declaration.bot.BotService
 import com.declaration.protocol.ClientMessage
 import com.declaration.protocol.WireJson
 import com.declaration.room.Room
@@ -22,6 +23,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler
 @Component
 class GameWebSocketHandler(
     private val rooms: RoomRegistry,
+    private val botService: BotService,
 ) : TextWebSocketHandler() {
 
     override fun afterConnectionEstablished(session: WebSocketSession) {
@@ -50,7 +52,12 @@ class GameWebSocketHandler(
                 is ClientMessage.Hello -> Unit // connect already happened on socket open
                 is ClientMessage.ChooseTeam -> room.chooseTeam(token, msg.team)
                 is ClientMessage.StartGame -> room.startGame(token)
+                is ClientMessage.AddBot -> botService.addBot(room, token, msg.team, msg.difficulty)
+                is ClientMessage.KickPlayer -> room.kickPlayer(token, msg.playerId)
+                is ClientMessage.RandomizeTeams -> room.randomizeTeams(token)
+                is ClientMessage.SetMoveHistoryEnabled -> room.setMoveHistoryEnabled(token, msg.enabled, msg.visibleCount)
                 is ClientMessage.SubmitAction -> room.submitAction(token, msg.action)
+                is ClientMessage.SetDeclaring -> room.setDeclaring(token, msg.declaring)
                 is ClientMessage.Ping -> room.ping(token)
             }
         }

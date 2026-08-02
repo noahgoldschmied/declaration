@@ -1,46 +1,33 @@
-import { useEffect } from "react";
 import type { GameEvent, PlayerId } from "../protocol/messages";
-import { cardLabel } from "../protocol/cards";
-import { DECK_LABELS } from "../protocol/deckCatalog";
+import { sortHand } from "../protocol/cards";
+import { CARDS_BY_DECK } from "../protocol/deckCatalog";
+import { describeEvent } from "../protocol/eventText";
+import { Card } from "./Card";
 
 export function EventFlash({
   event,
   nameOf,
-  onDismiss,
 }: {
   event: GameEvent;
   nameOf: (id: PlayerId) => string;
-  onDismiss: () => void;
 }) {
-  useEffect(() => {
-    const t = setTimeout(onDismiss, 5000);
-    return () => clearTimeout(t);
-  }, [event, onDismiss]);
-
   return (
-    <div className="rounded-md border border-amber-800 bg-amber-950/60 px-4 py-2.5 text-sm text-amber-200">
-      {describe(event, nameOf)}
+    <div className="flex flex-wrap items-center gap-3 rounded-md border border-amber-800 bg-amber-950/60 px-4 py-2.5 text-sm text-amber-200">
+      <div className="flex flex-wrap gap-1.5">
+        {event.type === "Ask" ? (
+          <Card card={event.card} />
+        ) : (
+          sortHand(CARDS_BY_DECK[event.deck]).map((c) => (
+            <div key={c} className="flex flex-col items-center gap-1">
+              <Card card={c} dim={!event.correct} />
+              {/* The deck is captured either way, so the true holder is safe to reveal even on a
+                  wrong declare -- it's history, not live strategic information anymore. */}
+              <span className="max-w-[5rem] truncate text-xs text-amber-300">{nameOf(event.actualHolders[c])}</span>
+            </div>
+          ))
+        )}
+      </div>
+      <span>{describeEvent(event, nameOf)}</span>
     </div>
   );
-}
-
-function describe(event: GameEvent, nameOf: (id: PlayerId) => string): string {
-  if (event.type === "Ask") {
-    const asker = nameOf(event.asker);
-    const asked = nameOf(event.asked);
-    const card = cardLabel(event.card);
-    switch (event.outcome) {
-      case "HIT":
-        return `${asker} asked ${asked} for ${card} — hit! Card moves to ${asker}.`;
-      case "MISS":
-        return `${asker} asked ${asked} for ${card} — miss. Turn passes to ${asked}.`;
-      case "SELF_OVERLAP":
-        return `${asker} asked ${asked} for ${card}, but ${asker} already holds it — revealed. Turn passes to ${asked}.`;
-    }
-  }
-  const declarer = nameOf(event.declarer);
-  const deck = DECK_LABELS[event.deck] ?? event.deck;
-  return event.correct
-    ? `${declarer} correctly declared ${deck} — ${event.awardedTo} captures the deck!`
-    : `${declarer} declared ${deck} incorrectly — ${event.awardedTo} captures the deck instead.`;
 }

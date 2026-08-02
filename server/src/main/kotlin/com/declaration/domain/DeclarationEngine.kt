@@ -30,9 +30,8 @@ class DeclarationEngine : Engine {
             return ActionResult.Invalid("can only assign cards to teammates")
         }
 
-        val correct = declare.assignments.all { (card, claimed) ->
-            state.holderOf(card) == claimed
-        }
+        val actualHolders = deckCards.associateWith { card -> state.holderOf(card)!! }
+        val correct = declare.assignments.all { (card, claimed) -> actualHolders[card] == claimed }
         val awardedTo = if (correct) declarer.team else opposingTeam(declarer.team)
 
         // Remove all 6 cards of this deck from every player's hand.
@@ -46,6 +45,13 @@ class DeclarationEngine : Engine {
 
         val newPhase = if (gameEnded) Phase.ENDED else state.phase
         val newWinner = if (gameEnded) awardedTo else state.winner
+        // A declare can be submitted by anyone at any time, not just the player on turn, and it
+        // can empty out the current turn-holder's hand (e.g. they just got the deck's last cards
+        // via a HIT and then someone declares that same deck out from under them). Without
+        // re-checking here, `state.turn` would keep pointing at a player who now holds no cards
+        // and can never legally Ask -- and since nobody else is on turn either, the game freezes
+        // with no valid move for anyone.
+        val nextTurn = if (gameEnded) state.turn else advancePastEmpty(newPlayers, state.turn)
 
         val event = Event.Declaration(
             declarer = actor,
@@ -53,6 +59,7 @@ class DeclarationEngine : Engine {
             assignments = declare.assignments,
             correct = correct,
             awardedTo = awardedTo,
+            actualHolders = actualHolders,
         )
 
         return ActionResult.Ok(
@@ -61,6 +68,7 @@ class DeclarationEngine : Engine {
                 capturedDecks = newCaptured,
                 phase = newPhase,
                 winner = newWinner,
+                turn = nextTurn,
             ),
             events = listOf(event),
         )

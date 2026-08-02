@@ -60,6 +60,23 @@ class EngineDeclareIncorrectTest {
     }
 
     @Test
+    fun `incorrect declare's event reveals the true holder of every card in the deck`() {
+        val result = engine.apply(state, ALICE, Action.Declare(DeckId("LOW_S"), wrong)) as ActionResult.Ok
+        val ev = result.events.single() as Event.Declaration
+        assertEquals(
+            mapOf(
+                CardId("2S") to ALICE,
+                CardId("3S") to ALICE,
+                CardId("4S") to CHARLIE,
+                CardId("5S") to CHARLIE,
+                CardId("6S") to EVE,
+                CardId("7S") to EVE, // truth, even though the (wrong) declare claimed ALICE
+            ),
+            ev.actualHolders,
+        )
+    }
+
+    @Test
     fun `declare assigning a card actually held by opponent is awarded to opposing team`() {
         // Set up: declarer says CHARLIE has 7S, but EVE has it. Both Red — but the card
         // is on Red's team, just wrong teammate. Still incorrect.

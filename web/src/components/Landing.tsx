@@ -49,7 +49,7 @@ export function Landing() {
           Declaration
         </h1>
         <p className="mt-2 text-sm uppercase tracking-[0.25em] text-stone-400">
-          Six players &middot; two gangs &middot; one deck of secrets
+          A team card game of hidden hands and deduction
         </p>
       </div>
 

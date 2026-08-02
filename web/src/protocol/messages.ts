@@ -15,6 +15,7 @@ export type TeamId = "RED" | "BLUE";
 export type AskOutcome = "HIT" | "MISS" | "SELF_OVERLAP";
 export type Phase = "PLAYING" | "ENDED";
 export type RoomPhase = "LOBBY" | "PLAYING" | "ENDED";
+export type BotDifficulty = "EASY" | "MEDIUM" | "HARD" | "IMPOSSIBLE";
 
 export type Action =
   | { type: "Ask"; target: PlayerId; card: CardId }
@@ -29,6 +30,10 @@ export type GameEvent =
       assignments: Record<CardId, PlayerId>;
       correct: boolean;
       awardedTo: TeamId;
+      // The deck's true holder for each card, as it stood right before this declare captured it.
+      // Equal to `assignments` when `correct`. Safe to reveal unconditionally -- the deck leaves
+      // play in this same event either way.
+      actualHolders: Record<CardId, PlayerId>;
     };
 
 export interface SelfView {
@@ -59,18 +64,35 @@ export interface PlayerInfo {
   displayName: string;
   team: TeamId | null;
   connected: boolean;
+  isBot: boolean;
+  botDifficulty: BotDifficulty | null;
 }
 
 export type ClientMessage =
   | { type: "Hello" }
   | { type: "ChooseTeam"; team: TeamId }
   | { type: "StartGame" }
+  | { type: "AddBot"; team: TeamId; difficulty: BotDifficulty }
+  | { type: "KickPlayer"; playerId: PlayerId }
+  | { type: "RandomizeTeams" }
+  | { type: "SetMoveHistoryEnabled"; enabled: boolean; visibleCount: number }
   | { type: "SubmitAction"; action: Action }
+  | { type: "SetDeclaring"; declaring: boolean }
   | { type: "Ping" };
 
 export type ServerMessage =
   | { type: "Welcome"; playerId: PlayerId; sessionToken: string; displayName: string }
-  | { type: "RoomState"; roomCode: string; phase: RoomPhase; hostId: PlayerId; players: PlayerInfo[] }
+  | {
+      type: "RoomState";
+      roomCode: string;
+      phase: RoomPhase;
+      hostId: PlayerId;
+      players: PlayerInfo[];
+      moveHistoryEnabled: boolean;
+      moveHistoryVisibleCount: number;
+    }
   | { type: "GameUpdate"; view: PlayerView; events: GameEvent[] }
   | { type: "ActionError"; reason: string }
+  | { type: "Kicked" }
+  | { type: "DeclaringPlayers"; playerIds: PlayerId[] }
   | { type: "Pong" };

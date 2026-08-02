@@ -24,7 +24,10 @@ export function DeclarePanel({
   const [deck, setDeck] = useState<DeckId>(openDecks[0] ?? "");
   const cards = deck ? (CARDS_BY_DECK[deck] ?? []) : [];
   const [assignments, setAssignments] = useState<Record<CardId, PlayerId>>({});
-  const [dragCard, setDragCard] = useState<CardId | null>(null);
+  // Tap-to-place: select a card, then tap where it goes. Works identically with
+  // mouse or touch, unlike native HTML5 drag-and-drop which most mobile
+  // browsers don't fire from touch at all.
+  const [selectedCard, setSelectedCard] = useState<CardId | null>(null);
 
   // If the selected deck just got captured (by anyone, e.g. another player's
   // declare), it's no longer a valid choice — reset to whatever's still open
@@ -33,6 +36,7 @@ export function DeclarePanel({
     if (deck && !openDecks.includes(deck)) {
       setDeck(openDecks[0] ?? "");
       setAssignments({});
+      setSelectedCard(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view.capturedDecks]);
@@ -40,6 +44,7 @@ export function DeclarePanel({
   function selectDeck(next: DeckId) {
     setDeck(next);
     setAssignments({});
+    setSelectedCard(null);
   }
 
   function assign(card: CardId, playerId: PlayerId | null) {
@@ -51,9 +56,13 @@ export function DeclarePanel({
     });
   }
 
-  function dropOn(playerId: PlayerId | null) {
-    if (dragCard) assign(dragCard, playerId);
-    setDragCard(null);
+  function tapCard(card: CardId) {
+    setSelectedCard((prev) => (prev === card ? null : card));
+  }
+
+  function placeSelected(playerId: PlayerId | null) {
+    if (selectedCard) assign(selectedCard, playerId);
+    setSelectedCard(null);
   }
 
   const unassigned = cards.filter((c) => !assignments[c]);
@@ -87,26 +96,19 @@ export function DeclarePanel({
       {deck && (
         <>
           <p className="mb-2 text-xs font-medium tracking-wide text-amber-400/70">
-            2. DRAG EACH CARD ONTO THE TEAMMATE WHO HOLDS IT
+            2. TAP A CARD, THEN TAP THE TEAMMATE WHO HOLDS IT
           </p>
 
           <div
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={() => dropOn(null)}
+            onClick={() => placeSelected(null)}
             className="mb-3 flex min-h-[7.5rem] flex-wrap items-center gap-2 rounded-lg border-2 border-dashed border-stone-700 bg-stone-950/50 p-3"
           >
             {unassigned.length === 0 ? (
-              <p className="text-sm text-stone-600">All 6 cards assigned — drop here to unassign one.</p>
+              <p className="text-sm text-stone-600">All 6 cards assigned — tap a card, then tap here to unassign it.</p>
             ) : (
               unassigned.map((c) => (
-                <div
-                  key={c}
-                  draggable
-                  onDragStart={() => setDragCard(c)}
-                  onDragEnd={() => setDragCard(null)}
-                  className={`cursor-grab active:cursor-grabbing ${dragCard === c ? "opacity-30" : ""}`}
-                >
-                  <Card card={c} />
+                <div key={c} onClick={(e) => e.stopPropagation()}>
+                  <Card card={c} selected={selectedCard === c} onClick={() => tapCard(c)} />
                 </div>
               ))
             )}
@@ -116,8 +118,7 @@ export function DeclarePanel({
             {assignees.map((a) => (
               <div
                 key={a.id}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => dropOn(a.id)}
+                onClick={() => placeSelected(a.id)}
                 className="min-h-[6.5rem] rounded-lg border-2 border-dashed border-stone-700 bg-stone-900/40 p-2"
               >
                 <p className={`mb-1.5 text-xs font-semibold ${TEAM_TEXT[view.you.team]}`}>{a.label}</p>
@@ -125,14 +126,8 @@ export function DeclarePanel({
                   {cards
                     .filter((c) => assignments[c] === a.id)
                     .map((c) => (
-                      <div
-                        key={c}
-                        draggable
-                        onDragStart={() => setDragCard(c)}
-                        onDragEnd={() => setDragCard(null)}
-                        className={`cursor-grab active:cursor-grabbing ${dragCard === c ? "opacity-30" : ""}`}
-                      >
-                        <Card card={c} />
+                      <div key={c} onClick={(e) => e.stopPropagation()}>
+                        <Card card={c} selected={selectedCard === c} onClick={() => tapCard(c)} />
                       </div>
                     ))}
                 </div>
